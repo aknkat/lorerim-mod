@@ -2,7 +2,7 @@
 
 制作日：2026-10-15（日本時間）。対象：Skyrim SE 1.6.1170 / LoreRim v5.0.4.8 Default / Requiem / Cabbage ENB。
 
-これは**実機未検証の試験版**です。ファイル作成とゲーム内の動作確認を区別します。
+これは**試験版**です。制作機ではSkyrimを起動していません。ユーザーの実機では制御MGEFの適用を確認しましたが、探知が表示されない問題が報告されています。ファイル検査とゲーム内の動作確認を区別します。
 
 ## 合格したファイル検査
 
@@ -46,9 +46,17 @@ MO2 ZIP：**17 files / Dataルート構造、ZIP CRC、全ファイルのSHA256�
 
 MO2用ZIPのルート `LICENSE` を `KhajiitKeenSenses-LICENSE.txt` へ変更した。ユーザー提供のFSMPアーカイブと初版の重複パスは、この文書1件のみだった。ESP、PEX、PSC、Stringsの実行用ファイルは変更せず、初版の各バイト列と照合した。修正後はFSMPとの重複パス0件、ZIPのCRC・全ファイルのSHA256、2回の再梱包の一致を検査した。ゲーム内動作の検証状態に変更はない。
 
-## 実機では未確認
+## ユーザー実機での探知不発とprobe1
 
-- SkyrimとMO2による実際のESP/PEXロード。
+通常能力の使用後に `player.hasmagiceffect FECF5801` が `1.00` となり、制御MGEFは適用された。内部探知を `player.cast FECF5803 00000014 left` で直接試しても表示されず、条件の出力が `GetDead >> 0`、2件の `HasKeyword >> 0`、`GetIsRef >> 1.00` となった。
+
+探知MGEFの `GetIsReference PlayerRef == 0` はこの評価対象では成立しない。元の条件表テストはActor候補を渡したときの論理表だけを検査しており、実際の評価対象を検証できていなかった。ここが当初の設計の誤りである。
+
+probe1はこのCTDAだけを1件削除する診断用ZIP。独立リーダーで他のレコード・条件・FormIDが同一であること、PEX・PSC・Stringsの8ファイルのバイト一致、0件の既存レコード上書き、ZIPのCRC・SHA256・再梱包一致を確認した。probe1のゲーム内結果は未確認。通常能力のスクリプト実行と、探知対象の除外・距離判定の成立も引き続き未確認。詳細は [DETECTION_PROBE.md](DETECTION_PROBE.md)。
+
+## 引き続き実機では未確認
+
+- PEXの実行。ESPの制御MGEFの適用は上記のユーザー報告で確認できた。
 - Cabbage ENBでのLifeDetectedの表示、壁越しの見え方、2秒での消失。
 - 約8mの半径、移動中の対象、Native Detect Lifeの条件評価と距離判定の組合せ。
 - 再使用60秒、連打、保存/ロード後の残時間、待機・睡眠・メニュー・セル移動。

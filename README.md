@@ -1,6 +1,8 @@
 # LoreRim 5：鋭敏な感覚 / Khajiit Keen Senses
 
-**v0.1.0 試験版。ESP・PEXのファイル検査11件に合格。Skyrim / LoreRim / ENB上での動作は未検証です。**
+**v0.1.0 試験版。ファイル検査11件に合格しましたが、ユーザーの実機では探知が表示されていません。完成版ではありません。**
+
+探知MGEFの自己除外条件が、プレイヤー自身への効果適用を拒否しているログが得られました。この条件だけを外した [probe1診断用ZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSenses-0.1.0-probe1-MO2.zip) と [診断手順](docs/DETECTION_PROBE.md) を追加しました。probe1のゲーム内結果は未確認です。以下の仕様表は設計値であり、実機での成立を示すものではありません。
 
 カジートのプレイヤーが任意に使う Lesser Power を追加します。既存のナイトアイは変更しません。ゲームに付与する操作は手動で行うため、種族・NPC・Perkを上書きする必要がありません。
 
