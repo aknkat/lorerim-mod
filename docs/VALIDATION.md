@@ -42,6 +42,10 @@ MO2 ZIP：**17 files / Dataルート構造、ZIP CRC、全ファイルのSHA256�
 
 同一ソースでの連続ビルドを検査し、ESP、補正/メタデータ固定後のPEX、Strings、MO2 ZIP、制作ソースZIPのバイト一致を確認済み。記録を含む最終ZIPにも同じ検査を実施した。
 
+## 2026-10-16：文書ファイルの梱包修正
+
+MO2用ZIPのルート `LICENSE` を `KhajiitKeenSenses-LICENSE.txt` へ変更した。ユーザー提供のFSMPアーカイブと初版の重複パスは、この文書1件のみだった。ESP、PEX、PSC、Stringsの実行用ファイルは変更せず、初版の各バイト列と照合した。修正後はFSMPとの重複パス0件、ZIPのCRC・全ファイルのSHA256、2回の再梱包の一致を検査した。ゲーム内動作の検証状態に変更はない。
+
 ## 実機では未確認
 
 - SkyrimとMO2による実際のESP/PEXロード。

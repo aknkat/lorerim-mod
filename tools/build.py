@@ -102,7 +102,8 @@ def main():
     normalize_pex(pex)
     shutil.copy2(ROOT / "scripts" / "source" / "LKS_KeenSensesEffect.psc", PACKAGE / "Scripts" / "Source")
     for name in ("README.md", "LICENSE"):
-        shutil.copy2(ROOT / name, PACKAGE / name)
+        packaged_name = "KhajiitKeenSenses-LICENSE.txt" if name == "LICENSE" else name
+        shutil.copy2(ROOT / name, PACKAGE / packaged_name)
     shutil.copytree(ROOT / "docs", PACKAGE / "docs")
     subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-v"], cwd=ROOT, check=True)
     archive(PACKAGE, ROOT / "dist" / "KhajiitKeenSenses-0.1.0-MO2.zip")

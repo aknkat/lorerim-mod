@@ -19,9 +19,11 @@ def verify(path):
                 raise ValueError("Unsafe archive path")
         expected = {"KhajiitKeenSenses.esp", "Scripts/LKS_KeenSensesEffect.pex",
                     "Scripts/Source/LKS_KeenSensesEffect.psc", "README.md",
-                    "build-manifest.json", "SHA256SUMS.txt"}
+                    "KhajiitKeenSenses-LICENSE.txt", "build-manifest.json", "SHA256SUMS.txt"}
         if not expected.issubset(names):
             raise ValueError("Incomplete MO2 data-root layout")
+        if any(name.lower() == "license" for name in names):
+            raise ValueError("Generic root LICENSE would conflict with other MO2 mods")
         if [n for n in names if n.lower().endswith(".pex")] != ["Scripts/LKS_KeenSensesEffect.pex"]:
             raise ValueError("Unexpected bundled runtime/SDK script")
         if len([n for n in names if n.startswith("Strings/")]) != 6:

@@ -67,12 +67,14 @@ Strings/KhajiitKeenSenses_English.{STRINGS,DLSTRINGS,ILSTRINGS}
 Strings/KhajiitKeenSenses_Japanese.{STRINGS,DLSTRINGS,ILSTRINGS}
 docs/...
 README.md
-LICENSE
+KhajiitKeenSenses-LICENSE.txt
 build-manifest.json
 SHA256SUMS.txt
 ```
 
 4件すべてがこのESP自身の新規レコードです。既存のRACE、PERK、SPEL、MGEF、NPC、クエスト、ナイトアイを上書きしません。機械とアンデッドは標準の `ActorTypeDwarven` / `ActorTypeUndead` キーワードで除外します。追加MODのActorに適切なキーワードがない場合や、LifeDetectedシェーダーが別MODで変更されている場合の挙動は未確認です。
+
+2026-10-16：梱包上のライセンス名を `KhajiitKeenSenses-LICENSE.txt` に変更しました。初版はルートの `LICENSE` がFSMPの同名文書と重複し、MO2に文書の競合が表示されました。ESP・PEX・Stringsの内容は同一です。修正前の版を導入済みの場合は、更新ZIPをMO2で既存MODへ **Replace（置き換え）** して、古い `LICENSE` を残さず入れ替えてください。
 
 英語・日本語の表示はゲームの言語設定に従います。その他の言語のStringsは同梱していません。
 
