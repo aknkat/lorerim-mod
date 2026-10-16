@@ -10,7 +10,7 @@ using System.Text.Json;
 if (args.Length == 2 && args[0] == "--verify-pex")
 {
     var pex = Mutagen.Bethesda.Pex.PexFile.CreateFromFile(args[1], GameCategory.Skyrim);
-    if (pex.Objects.Count != 1 || pex.Objects[0].Name != "LKS_KeenSensesEffect")
+    if (pex.Objects.Count != 1 || pex.Objects[0].Name != Path.GetFileNameWithoutExtension(args[1]))
         throw new InvalidDataException("Unexpected PEX script objects.");
     Console.WriteLine("Mutagen independent PEX readback: complete Skyrim file and object sizes passed.");
     return;
@@ -25,13 +25,22 @@ var key = ModKey.FromNameAndExtension("KhajiitKeenSenses.esp");
 var mod = new SkyrimMod(key, SkyrimRelease.SkyrimSE);
 mod.ModHeader.Flags = SkyrimModHeader.HeaderFlag.Small | SkyrimModHeader.HeaderFlag.Localized;
 mod.ModHeader.Author = "aknkat";
-mod.ModHeader.Description = "Keen Senses 0.1.2 - remove self-referential cooldown gate; game validation pending.";
+mod.ModHeader.Description = "Keen Senses 0.1.3 - scripted singleton cooldown controller; game validation pending.";
 mod.ModHeader.Stats.Version = 1.7f;
 
 var power = new Spell(new FormKey(key, 0x800), SkyrimRelease.SkyrimSE);
 var control = new MagicEffect(new FormKey(key, 0x801), SkyrimRelease.SkyrimSE);
 var detect = new MagicEffect(new FormKey(key, 0x802), SkyrimRelease.SkyrimSE);
 var detectionSpell = new Spell(new FormKey(key, 0x803), SkyrimRelease.SkyrimSE);
+var controllerQuest = new Quest(new FormKey(key, 0x804), SkyrimRelease.SkyrimSE)
+{
+    EditorID = "LKS_KeenSensesControllerQuest",
+    Flags = 0, Priority = 0, Type = Quest.TypeEnum.None, NextAliasID = 0,
+    VirtualMachineAdapter = new QuestAdapter()
+};
+// Start explicitly on the first valid activation: no StartGameEnabled/SEQ,
+// aliases, objectives, stage fragments, NPC bindings or auto-distribution.
+mod.Quests.Add(controllerQuest);
 mod.Spells.Add(power);
 mod.Spells.Add(detectionSpell);
 mod.MagicEffects.Add(control);
@@ -102,9 +111,9 @@ power.Description = Text("Detect living creatures within about 8 metres for 2 se
 SetEffect(control, "LKS_KeenSensesCooldownEffect", "Keen Senses: Cooldown", "鋭敏な感覚：再使用待ち");
 control.Archetype = new MagicEffectArchetype(MagicEffectArchetype.TypeEnum.Script);
 control.Flags = MagicEffect.Flag.NoMagnitude | MagicEffect.Flag.NoArea
-    | MagicEffect.Flag.NoRecast | MagicEffect.Flag.NoHitEvent
-    | MagicEffect.Flag.Painless | MagicEffect.Flag.NoDeathDispel;
-control.Description = Text("Keen Senses can be used again when this effect expires.", "鋭敏な感覚は、この効果が終了すると再び使用できる。");
+    | MagicEffect.Flag.NoHitEvent | MagicEffect.Flag.HideInUI | MagicEffect.Flag.Painless;
+control.Description = Text("Internal activation trigger. A separate controller enforces the cooldown.",
+    "内部起動用の効果。再使用待ちは専用コントローラーで管理する。");
 control.VirtualMachineAdapter = new VirtualMachineAdapter();
 var script = new ScriptEntry { Name = "LKS_KeenSensesEffect" };
 void Bind(string name, FormKey form)
@@ -116,16 +125,26 @@ void Bind(string name, FormKey form)
 Bind("DetectionSpell", detectionSpell.FormKey);
 Bind("KhajiitRace", Vanilla(0x13745));
 Bind("KhajiitVampireRace", Vanilla(0x88845));
+Bind("CooldownController", controllerQuest.FormKey);
 control.VirtualMachineAdapter.Scripts.Add(script);
+var manager = new ScriptEntry { Name = "LKS_KeenSensesController" };
+foreach (var property in script.Properties.Where(p => p.Name != "CooldownController"))
+{
+    var copied = new ScriptObjectProperty { Name = property.Name };
+    copied.Object.SetTo(((ScriptObjectProperty)property).Object.FormKey);
+    manager.Properties.Add(copied);
+}
+controllerQuest.VirtualMachineAdapter.Scripts.Add(manager);
 var trigger = new Effect { Data = new EffectData
-    { Magnitude = 0, Area = 0, Duration = 60 } };
+    { Magnitude = 0, Area = 0, Duration = 1 } };
 trigger.BaseEffect.SetTo(control.FormKey);
 trigger.Conditions.Add(Compare(IsPlayer(), 1));
 trigger.Conditions.Add(Compare(IsRace(0x13745), 1, or: true));
 trigger.Conditions.Add(Compare(IsRace(0x88845), 1));
 // Do not condition this effect on its own absence, including on the SPEL
 // entry: active-effect conditions can be reevaluated after application.
-// The finite 60-second effect and NoRecast handle duplicate applications.
+// This repeatable trigger never owns cooldown state. Its controller checks
+// the saved lock and schedules a timer only on an accepted activation.
 power.Effects.Add(trigger);
 
 SetSpell(detectionSpell, "LKS_DetectionPulse", "LKS Internal Detection Pulse", "LKS Internal Detection Pulse", SpellType.Spell);
@@ -167,7 +186,7 @@ mod.WriteToBinary(path, new BinaryWriteParameters { Encodings = encoding,
     Parallel = new ParallelWriteParameters { MaxDegreeOfParallelism = 1 } });
 using var readback = SkyrimMod.CreateFromBinaryOverlay(path, SkyrimRelease.SkyrimSE);
 var records = readback.EnumerateMajorRecords().ToArray();
-if (records.Length != 4 || records.Any(r => r.FormKey.ModKey != key))
+if (records.Length != 5 || records.Any(r => r.FormKey.ModKey != key))
     throw new InvalidDataException("Unexpected record count or existing-record override.");
 if (readback.ModHeader.MasterReferences.Count != 1
     || readback.ModHeader.MasterReferences[0].Master.FileName.String != "Skyrim.esm")
@@ -178,7 +197,7 @@ foreach (var link in records.SelectMany(r => r.EnumerateFormLinks()))
     if (link.FormKey.ModKey == key && !records.Any(r => r.FormKey == link.FormKey))
         throw new InvalidDataException($"Broken local link: {link.FormKey}");
 }
-var report = new { plugin = key.FileName.String, version = "0.1.2",
+var report = new { plugin = key.FileName.String, version = "0.1.3",
     status = "structural_validation_only_game_validation_pending",
     master = "Skyrim.esm", esl = true, overrides = 0,
     records = records.Select(r => new { id = $"{r.FormKey.ID:X6}", type = r.GetType().Name,
@@ -192,11 +211,12 @@ var report = new { plugin = key.FileName.String, version = "0.1.2",
     native_detection_area_feet = 27, detection_magnitude = 0, distance_filter_units = 560,
     reference_data = "User-provided LKS-detection-records.txt; 3494 loaded files",
     detection_seconds = 2, cooldown_seconds = 60,
-    cooldown_control = "Finite effect with NoRecast; no self-referential HasMagicEffect gate",
+    activation_seconds = 1,
+    cooldown_control = "Quest-owned saved Boolean lock with one RegisterForSingleUpdate(60); retries do not schedule",
     languages = new[] { "English", "Japanese" },
     skse_required = false, requiem_master_required = false };
 var metadata = Path.Combine(output, "KhajiitKeenSenses");
 Directory.CreateDirectory(metadata);
 File.WriteAllText(Path.Combine(metadata, "build-manifest.json"),
     JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }) + "\n");
-Console.WriteLine($"Wrote {path}; Mutagen readback: 4 new records, 0 overrides, Skyrim.esm only.");
+Console.WriteLine($"Wrote {path}; Mutagen readback: 5 new records, 0 overrides, Skyrim.esm only.");

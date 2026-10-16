@@ -1,12 +1,11 @@
 Scriptname LKS_KeenSensesEffect extends ActiveMagicEffect
-; This effect itself is the 60-second, engine-persisted cooldown.
-; NoRecast prevents duplicate applications. Spell-entry conditions only check
-; the player and race; never condition this effect on its own absence.
-; The separate native Detect Life spell lasts only two seconds.
+; Short activation trigger only. Cooldown state belongs to the quest controller.
+; Retain the three legacy properties so old saved instances can finish safely.
 
 Spell Property DetectionSpell Auto
 Race Property KhajiitRace Auto
 Race Property KhajiitVampireRace Auto
+Quest Property CooldownController Auto
 
 Event OnEffectStart(Actor akTarget, Actor akCaster)
     Actor playerRef = Game.GetPlayer()
@@ -14,12 +13,16 @@ Event OnEffectStart(Actor akTarget, Actor akCaster)
         Return
     EndIf
 
-    Race currentRace = playerRef.GetRace()
-    If currentRace != KhajiitRace && currentRace != KhajiitVampireRace
+    If CooldownController == None
         Return
     EndIf
-
-    If DetectionSpell != None
-        DetectionSpell.Cast(playerRef, playerRef)
+    If !CooldownController.IsRunning()
+        If !CooldownController.Start()
+            Return
+        EndIf
+    EndIf
+    LKS_KeenSensesController controller = CooldownController as LKS_KeenSensesController
+    If controller != None
+        controller.TryActivate(akTarget, akCaster)
     EndIf
 EndEvent

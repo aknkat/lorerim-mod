@@ -1,18 +1,20 @@
 # LoreRim 5：鋭敏な感覚 / Khajiit Keen Senses
 
-**v0.1.2 再使用制御の修正版。既存レコードの上書き0件。v0.1.1で表示できた探知は維持し、再使用待ちの自己参照条件を取り除きました。v0.1.2の実機動作は未確認です。**
+**v0.1.3：専用コントローラーで60秒制限を管理します。既存レコードの上書き0件。探知レコードは表示できた版と同一。ファイル・コンパイル済み制御の19検査に合格、v0.1.3の実機動作は未確認です。**
 
-[MO2導入用ZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSenses-0.1.2-MO2.zip) / [制作ソースZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSenses-0.1.2-source.zip)
+[MO2導入用ZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSenses-0.1.3-MO2.zip) / [制作ソースZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSenses-0.1.3-source.zip)
 
 カジートのプレイヤー向けに、半径約8mの生物を2秒間探知する特殊能力（Lesser Power）を追加します。再使用は60秒後、マジカ・スタミナ消費は0。既存のナイトアイ、種族、Perk、NPCは変更しません。
 
-## v0.1.2：早めの再入力後に再使用できない問題
+## v0.1.3：再入力で更新されない共有クールダウン
 
-v0.1.1では初回の赤い表示と待機後の再使用が報告されましたが、初回から30秒後に再入力し、初回から65秒後に試すと発動しなかったとの報告を受けました。再使用待ち・残り時間も有効な効果に表示されていません。
+v0.1.1は待機中の再入力後に使えず、自己参照条件だけを外したv0.1.2では毎回発動すると報告されました。No Recastフラグだけで制限できるという前提は実環境で成立しませんでした。
 
-この版は、主能力の効果条件にあった **HasMagicEffect（自分自身の再使用待ち）== 0** を削除します。発動条件を持続効果の評価でも使う場合に、自分が存在するだけで条件が偽になる構造を取り除きます。60秒の有限効果と **No Recast** による重複防止を使います。再入力で待ち時間が延びないことは実機最終確認待ちです。
+v0.1.3は、**入力を受ける短い効果と、60秒の状態を保持する専用クエストを分離**します。専用クエストのスクリプトが待機フラグを先に確保し、受理した1回だけ `RegisterForSingleUpdate(60)` と探知を実行します。待機中の再入力は両方を行わず終了します。期限の更新や入力効果の寿命に依存しません。
 
-既に表示できた探知MGEF、内部探知SPEL、制御MGEF、コンパイル済みPEXは公開済みv0.1.1とバイト単位で同じことを検査します。既存レコードの変更、キー入力の登録・奪取、他MODの設定変更は行いません。詳細は [再使用制御の変更](docs/COOLDOWN_FIX_0.1.2.md)。
+専用クエストは自作ESPの新規レコード1件で、初回の有効な発動時に開始します。起動後は残りますが、待機中以外に定期処理を登録しません。自動起動・NPCのAlias・クエスト目標・既存クエストへの変更はありません。追加のSKSE依存もありません。
+
+コンパイル済みPEXを検査用ホストで実行し、0/30/65秒、200回の再入力、Native呼び出し途中の再入、保存したフラグと更新登録の復元を検査しました。**タイマー登録とその保存復元は模擬したもので、Skyrim本体でのイベント配送・保存ロードを確認した意味ではありません。** 詳細は [v0.1.3の構成](docs/COOLDOWN_CONTROLLER_0.1.3.md) と [検証記録](docs/VALIDATION.md)。
 
 ## v0.1.1で修正したこと
 
@@ -24,10 +26,10 @@ v0.1.0とprobe1はユーザーの実機で探知が表示されませんでし�
 
 ## 導入・更新
 
-1. ゲームを終了し、`KhajiitKeenSenses-0.1.2-MO2.zip` をMO2の「アーカイブからMODをインストール」で導入します。
+1. ゲームを終了し、`KhajiitKeenSenses-0.1.3-MO2.zip` をMO2の「アーカイブからMODをインストール」で導入します。
 2. 旧版がある場合は **Replace（置き換え）**。同名ESPを提供する旧版・診断版を重ねず、1つだけ有効にします。置き換えにより旧版の共通名文書も取り除きます。
 3. 左側のMODと、右側の `KhajiitKeenSenses.esp` を有効にします。ESLフラグ付きESPです。
-4. 能力を追加済みのセーブでは、同じ能力をそのまま使います。ESP名・4件のローカルFormID・Papyrusプロパティ名は維持しています。
+4. 能力を追加済みのセーブでは、同じ能力をそのまま使います。ESP名と既存4件のローカルFormIDは維持し、専用QUSTをローカル804へ追加しています。旧プロパティ3件も互換性のため保持しています。
 5. 初回のみ、カジートのセーブでコンソールから能力を追加します。
 
 送付されたロードオーダーではIndexは **FE:CFD** でした。このままなら、追加コマンドは次です。
@@ -49,7 +51,7 @@ Indexが変わった場合はMO2右側の現在値を使います。`FE:xxx` な
 | 使用者 | プレイヤーのKhajiitRace / KhajiitRaceVampireのみ |
 | 能力 | 任意発動のLesser Power |
 | 範囲 | Area 27 feetの範囲をGetDistance PlayerRef <= 560 unitsで制限。約8m |
-| 持続・再使用 | 探知2秒、制御効果60秒 |
+| 持続・再使用 | 探知2秒。入力効果は1秒、独立コントローラーが60秒待機を管理 |
 | 費用 | マジカ・スタミナ0、スキル経験値0 |
 | 除外 | 死体、ActorTypeUndead / IsUndead、ActorTypeDwarven、標準のNoDetectLife |
 | 場所・時刻 | 屋内外・昼夜による条件なし |
@@ -59,8 +61,8 @@ Indexが変わった場合はMO2右側の現在値を使います。`FE:xxx` な
 
 ## 競合を避ける構成
 
-- 2 MGEF + 2 SPELの4件すべてがこのESP固有の新規レコード。既存の種族・ナイトアイ・Perk・NPC・魔法・シェーダーの上書きは0件。
-- Papyrusは固有名の `LKS_KeenSensesEffect` 1件。既存スクリプトの置き換えや常駐クエストはありません。
+- 2 MGEF + 2 SPEL + 1 QUSTの5件すべてがこのESP固有の新規レコード。既存の種族・ナイトアイ・Perk・NPC・魔法・シェーダー・クエストの上書きは0件。
+- Papyrusは固有名の `LKS_KeenSensesEffect` と `LKS_KeenSensesController` の2件。前者は入力、後者は専用クエストに属する状態管理です。既存スクリプトの置き換えはありません。
 - 生命探知シェーダーと標準キーワードは参照のみ。今回は送付されたロードオーダーでの定義を照合済みです。
 - README・ライセンス・検査記録は `KhajiitKeenSenses/` 以下にまとめ、他MODの共通名文書と重複するパスを避けます。
 - ユーザー提供のFSMPアーカイブとのファイルパス重複も検査します。
@@ -68,7 +70,9 @@ Indexが変わった場合はMO2右側の現在値を使います。`FE:xxx` な
 ```text
 KhajiitKeenSenses.esp
 Scripts/LKS_KeenSensesEffect.pex
+Scripts/LKS_KeenSensesController.pex
 Scripts/Source/LKS_KeenSensesEffect.psc
+Scripts/Source/LKS_KeenSensesController.psc
 Strings/KhajiitKeenSenses_English.{STRINGS,DLSTRINGS,ILSTRINGS}
 Strings/KhajiitKeenSenses_Japanese.{STRINGS,DLSTRINGS,ILSTRINGS}
 KhajiitKeenSenses/README.md
@@ -88,8 +92,8 @@ KhajiitKeenSenses/docs/...
 player.removespell FECFD800
 ```
 
-探知と再使用待ちの終了後、別名で保存してからMODを無効化します。確実に導入前へ戻す場合は導入前のセーブを使います。セーブからの完全な除去は制作環境では検証できていません。
+最後の発動から通常画面で60秒以上待ち、専用クエストを停止して別名で保存してからMODを無効化します。現在のIndexがFE:CFDなら停止コマンドは `stopquest FECFD804`。このコマンドは本MODの専用クエストだけを対象とします。確実に導入前へ戻す場合は導入前のセーブを使います。セーブからの完全な除去は制作環境では検証できていません。
 
 ## 制作ソース
 
-`KhajiitKeenSenses-0.1.2-source.zip` はESP生成コード、PSC、検査器、テスト、文書を含む開発用ZIPで、MO2へ導入するZIPではありません。[ビルド方法](docs/BUILD.md)と [参照元](docs/SOURCES.md) を同梱しています。ゲーム本体、Requiem/LoreRimのプラグイン、第三者ツールのバイナリは同梱しません。
+`KhajiitKeenSenses-0.1.3-source.zip` はESP生成コード、PSC、検査器、テスト、文書を含む開発用ZIPで、MO2へ導入するZIPではありません。[ビルド方法](docs/BUILD.md)と [参照元](docs/SOURCES.md) を同梱しています。ゲーム本体、Requiem/LoreRimのプラグイン、第三者ツールのバイナリは同梱しません。

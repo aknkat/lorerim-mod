@@ -13,6 +13,7 @@ from formats import normalize_pex, repair_caprica_skyrim_size
 ROOT = Path(__file__).resolve().parent.parent
 PACKAGE = ROOT / "package"
 CAPRICA_SHA256 = "389fef19a803c36342fa7f733c96b6e27ef10fcd0b171af10427e29cbe153ec6"
+SCRIPTS = ("LKS_KeenSensesEffect", "LKS_KeenSensesController")
 
 
 def windows_path(path, wine):
@@ -93,28 +94,29 @@ def main():
                "--all-warnings-as-errors",
                "--flags=" + windows_path(args.api_dir / "TESV_Papyrus_Flags.flg", args.wine),
                "--import=" + windows_path(args.api_dir, args.wine),
-               "--output=" + windows_path(PACKAGE / "Scripts", args.wine),
-               "LKS_KeenSensesEffect.psc"]
+               "--output=" + windows_path(PACKAGE / "Scripts", args.wine)]
+    command += [name + ".psc" for name in SCRIPTS]
     subprocess.run(command, cwd=ROOT / "scripts" / "source", check=True)
-    pex = PACKAGE / "Scripts" / "LKS_KeenSensesEffect.pex"
-    if repair_caprica_skyrim_size(pex):
-        print("Normalized PEX object size (byte order and inclusive length); strict parse passed.")
-    normalize_pex(pex)
-    subprocess.run([args.dotnet, "run", "--project", str(project), "--no-build",
-                    "--configuration", "Release", "--", "--verify-pex", str(pex)],
-                   cwd=ROOT, check=True)
-    shutil.copy2(ROOT / "scripts" / "source" / "LKS_KeenSensesEffect.psc", PACKAGE / "Scripts" / "Source")
+    for name in SCRIPTS:
+        pex = PACKAGE / "Scripts" / (name + ".pex")
+        if repair_caprica_skyrim_size(pex):
+            print(f"Normalized PEX object size: {name}; strict parse passed.")
+        normalize_pex(pex)
+        subprocess.run([args.dotnet, "run", "--project", str(project), "--no-build",
+                        "--configuration", "Release", "--", "--verify-pex", str(pex)],
+                       cwd=ROOT, check=True)
+        shutil.copy2(ROOT / "scripts" / "source" / (name + ".psc"), PACKAGE / "Scripts" / "Source")
     metadata = PACKAGE / "KhajiitKeenSenses"
     for name in ("README.md", "LICENSE"):
         shutil.copy2(ROOT / name, metadata / ("LICENSE.txt" if name == "LICENSE" else name))
     shutil.copytree(ROOT / "docs", metadata / "docs", ignore=shutil.ignore_patterns(
         "DETECTION_PROBE.md", "EXPORT_DETECTION_RECORDS.md"))
     subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-v"], cwd=ROOT, check=True)
-    archive(PACKAGE, ROOT / "dist" / "KhajiitKeenSenses-0.1.2-MO2.zip",
+    archive(PACKAGE, ROOT / "dist" / "KhajiitKeenSenses-0.1.3-MO2.zip",
             checksum_path="KhajiitKeenSenses/SHA256SUMS.txt")
     subprocess.run([sys.executable, str(ROOT / "tools" / "verify_archive.py"),
-                    str(ROOT / "dist" / "KhajiitKeenSenses-0.1.2-MO2.zip")], cwd=ROOT, check=True)
-    source_archive(ROOT / "dist" / "KhajiitKeenSenses-0.1.2-source.zip")
+                    str(ROOT / "dist" / "KhajiitKeenSenses-0.1.3-MO2.zip")], cwd=ROOT, check=True)
+    source_archive(ROOT / "dist" / "KhajiitKeenSenses-0.1.3-source.zip")
 
 
 if __name__ == "__main__":

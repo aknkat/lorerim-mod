@@ -8,6 +8,7 @@ import sys
 import unittest
 import hashlib
 import json
+from pex_host import Host
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -34,72 +35,6 @@ def passes(items, values):
     return True
 
 
-def execute_event(obj, bindings, race=0x13745, target="player", caster="player"):
-    """Small test VM: execute compiled guard branches with mocked vanilla APIs."""
-    event = obj["states"][""]["OnEffectStart"]
-    env = {name.lower(): None for name in obj["variables"]}
-    for prop, details in obj["properties"].items():
-        env[details["variable"].lower()] = bindings.get(prop)
-    env.update({"self": "effect", "aktarget": target, "akcaster": caster})
-    calls = []
-
-    def get(value):
-        kind, raw = value
-        return env[raw.lower()] if kind == 1 else raw
-
-    def put(value, data):
-        if value[0] != 1:
-            raise ValueError("Invalid variable destination")
-        env[value[1].lower()] = data
-
-    code, pc, count = event["code"], 0, 0
-    while pc < len(code):
-        count += 1
-        if count > 1000:
-            raise ValueError("Unexpected script loop")
-        inst = code[pc]
-        op, args, extra = inst["op"], inst["args"], inst["variadic"]
-        if op == 0:
-            pass
-        elif op == 10:
-            put(args[0], not get(args[1]))
-        elif op in (13, 14):
-            put(args[0], get(args[1]))
-        elif op == 15:
-            put(args[0], get(args[1]) == get(args[2]))
-        elif op == 20:
-            pc += get(args[0])
-            continue
-        elif op in (21, 22):
-            if bool(get(args[0])) == (op == 21):
-                pc += get(args[1])
-                continue
-        elif op == 25:
-            if [a[1].lower() for a in args[:2]] != ["game", "getplayer"] or extra:
-                raise ValueError("Unexpected global/native dependency")
-            put(args[2], "player")
-        elif op == 23:
-            method, receiver = args[0][1].lower(), get(args[1])
-            if method == "getrace" and receiver == "player" and not extra:
-                put(args[2], race)
-            elif method == "cast" and receiver == bindings["DetectionSpell"]:
-                calls.append((receiver, *(get(a) for a in extra)))
-                put(args[2], None)
-            else:
-                raise ValueError("Unexpected method/native dependency")
-        elif op == 28:
-            prop = args[0][1]
-            if get(args[1]) != "effect":
-                raise ValueError("Unexpected property target")
-            put(args[2], bindings[prop])
-        elif op == 26:
-            return calls
-        else:
-            raise ValueError(f"Unsupported guard-test opcode {op}")
-        pc += 1
-    return calls
-
-
 class ArtifactTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -108,24 +43,31 @@ class ArtifactTests(unittest.TestCase):
         cls.header = cls.records[0]
         cls.forms = {r["id"] & 0xFFFFFF: r for r in cls.records[1:]}
         cls.pex = read_pex(cls.package / "Scripts" / "LKS_KeenSensesEffect.pex")
+        cls.manager_pex = read_pex(cls.package / "Scripts" / "LKS_KeenSensesController.pex")
+        cls.effect_bindings = vmad(cls.forms[0x801])["LKS_KeenSensesEffect"]["properties"]
+        cls.manager_bindings = vmad(cls.forms[0x804])["LKS_KeenSensesController"]["properties"]
+
+    def host(self):
+        return Host(self.pex["objects"][0], self.manager_pex["objects"][0],
+                    dict(self.effect_bindings), dict(self.manager_bindings))
 
     def test_esl_new_records_only_and_master(self):
         self.assertEqual(self.header["type"], "TES4")
         self.assertEqual(self.header["flags"] & (0x200 | 0x80), 0x280)
         self.assertEqual(fields(self.header, "MAST"), [b"Skyrim.esm\0"])
-        self.assertEqual(set(self.forms), {0x800, 0x801, 0x802, 0x803})
-        self.assertEqual(self.groups, [("MGEF", 0), ("SPEL", 0)])
+        self.assertEqual(set(self.forms), {0x800, 0x801, 0x802, 0x803, 0x804})
+        self.assertEqual(set(self.groups), {("MGEF", 0), ("SPEL", 0), ("QUST", 0)})
         for record in self.records[1:]:
             self.assertEqual(record["id"] >> 24, 1, "Master-record override")
             self.assertEqual(record["version"], 44)
             self.assertEqual(record["flags"], 0)
 
-    def test_header_counts_and_no_race_perk_quest_changes(self):
+    def test_header_counts_and_no_existing_actor_record_changes(self):
         version, count, next_id = struct.unpack("<fII", field(self.header, "HEDR"))
         self.assertAlmostEqual(version, 1.7)
         self.assertEqual(count, len(self.records) - 1 + len(self.groups))
-        self.assertEqual(next_id, 0x804)
-        self.assertEqual([r["type"] for r in self.records[1:]], ["MGEF", "MGEF", "SPEL", "SPEL"])
+        self.assertEqual(next_id, 0x805)
+        self.assertEqual(sorted(r["type"] for r in self.records[1:]), ["MGEF", "MGEF", "QUST", "SPEL", "SPEL"])
 
     def test_lesser_power_and_zero_cost(self):
         spit = struct.unpack("<IIIfIIffI", field(self.forms[0x800], "SPIT"))
@@ -133,14 +75,14 @@ class ArtifactTests(unittest.TestCase):
         self.assertEqual(spit[1], 0xB00001)
         self.assertEqual(struct.unpack("<I", field(self.forms[0x800], "ETYP"))[0], 0x25BEE)
         self.assertEqual(field(self.forms[0x800], "EFID"), struct.pack("<I", 0x01000801))
-        self.assertEqual(struct.unpack("<fII", field(self.forms[0x800], "EFIT")), (0, 0, 60))
+        self.assertEqual(struct.unpack("<fII", field(self.forms[0x800], "EFIT")), (0, 0, 1))
 
-    def test_native_cooldown_flags_and_entry_gate(self):
+    def test_repeatable_trigger_has_no_native_cooldown_or_self_gate(self):
         data = field(self.forms[0x801], "DATA")
         self.assertEqual(len(data), 152)
         flags = struct.unpack_from("<I", data)[0]
-        self.assertTrue(flags & 0x20000, "NoRecast absent")
-        self.assertTrue(flags & 0x10000000, "NoDeathDispel absent")
+        self.assertFalse(flags & 0x20000, "Do not rely on NoRecast for the shared timer")
+        self.assertTrue(flags & 0x8000, "Short trigger should be hidden")
         self.assertFalse(flags & (0x1 | 0x4 | 0x200), "Hostile/detrimental/no-duration flag")
         self.assertEqual(struct.unpack_from("<I", data, 64)[0], 1)
         self.assertEqual(fields(self.forms[0x801], "CTDA"), [], "Circular active-effect gate")
@@ -162,16 +104,16 @@ class ArtifactTests(unittest.TestCase):
                           (69, 0x88845): race == 0x88845}
                 self.assertEqual(passes(gate, values), expected)
 
-    def test_preserves_user_confirmed_detection_and_compiled_script(self):
+    def test_preserves_user_confirmed_detection_records(self):
         baseline = json.loads((ROOT / "tests/fixtures/v011-detection-signatures.json").read_text())
         for local_id, digest in baseline["record_fields_sha256"].items():
+            if local_id == "801":  # This record is now a repeatable trigger.
+                continue
             record = self.forms[int(local_id, 16)]
             raw = b"".join(name.encode("ascii") + struct.pack("<H", len(data)) + data
                            for name, data in record["fields"])
             self.assertEqual(hashlib.sha256(raw).hexdigest(), digest,
                              f"Changed already-working v0.1.1 record {local_id}")
-        self.assertEqual(hashlib.sha256((self.package / "Scripts/LKS_KeenSensesEffect.pex").read_bytes()).hexdigest(),
-                         baseline["pex_sha256"], "Changed detection script bytecode")
 
     def test_detection_native_shader_range_and_duration(self):
         data = field(self.forms[0x802], "DATA")
@@ -222,25 +164,127 @@ class ArtifactTests(unittest.TestCase):
         self.assertEqual(obj["parent"].lower(), "activemagiceffect")
         bindings = vmad(self.forms[0x801])[obj["name"]]["properties"]
         self.assertEqual(bindings, {"DetectionSpell": 0x01000803,
-                                   "KhajiitRace": 0x13745, "KhajiitVampireRace": 0x88845})
+                                   "KhajiitRace": 0x13745, "KhajiitVampireRace": 0x88845,
+                                   "CooldownController": 0x01000804})
         self.assertEqual({p: d["type"].lower() for p, d in obj["properties"].items()},
-                         {"DetectionSpell": "spell", "KhajiitRace": "race", "KhajiitVampireRace": "race"})
+                         {"DetectionSpell": "spell", "KhajiitRace": "race", "KhajiitVampireRace": "race",
+                          "CooldownController": "quest"})
         self.assertEqual(obj["states"][""]["OnEffectStart"]["parameters"],
                          [("akTarget", "actor"), ("akCaster", "actor")])
 
+    def test_controller_is_owned_and_started_on_demand(self):
+        quest = self.forms[0x804]
+        self.assertEqual(quest["type"], "QUST")
+        self.assertEqual(len(field(quest, "DNAM")), 12)
+        flags, priority = struct.unpack_from("<HB", field(quest, "DNAM"))
+        self.assertEqual((flags, priority), (0, 0))  # no StartGameEnabled / SEQ
+        self.assertFalse(fields(quest, "ALST") or fields(quest, "INDX") or fields(quest, "QOBJ"))
+        self.assertEqual(fields(quest, "FULL"), [])  # no journal entry/name
+        self.assertEqual(self.manager_bindings, {"DetectionSpell": 0x01000803,
+                         "KhajiitRace": 0x13745, "KhajiitVampireRace": 0x88845})
+        obj = self.manager_pex["objects"][0]
+        self.assertEqual(obj["parent"].lower(), "quest")
+        self.assertIn("TryActivate", obj["states"][""])
+        self.assertIn("OnUpdate", obj["states"][""])
+        self.assertNotIn("OnInit", obj["states"][""])  # no load/start lock reset
+
     def test_compiled_player_and_race_guards(self):
-        obj = self.pex["objects"][0]
-        bindings = vmad(self.forms[0x801])[obj["name"]]["properties"]
         for race, target, caster, expected in [
             (0x13745, "player", "player", True), (0x88845, "player", "player", True),
             (0x13746, "player", "player", False), (0x13745, "npc", "npc", False),
             (0x13745, "player", "npc", False), (0x13745, "npc", "player", False),
             (0x13745, "player", None, False)]:
             with self.subTest(race=race, target=target, caster=caster):
-                calls = execute_event(obj, bindings, race, target, caster)
-                self.assertEqual(calls, [(0x01000803, "player", "player")] if expected else [])
-        unbound = dict(bindings, DetectionSpell=None)
-        self.assertEqual(execute_event(obj, unbound), [])
+                host = self.host()
+                host.race = race
+                host.activate(target, caster)
+                self.assertEqual(len(host.casts), int(expected))
+                self.assertEqual(len(host.registrations), int(expected))
+
+    def test_missing_bindings_and_failed_start_do_not_lock_or_cast(self):
+        for kind in ("controller", "pulse", "start"):
+            with self.subTest(kind=kind):
+                host = self.host()
+                if kind == "controller":
+                    host.effect_bindings["CooldownController"] = None
+                elif kind == "pulse":
+                    variable = host.manager.obj["properties"]["DetectionSpell"]["variable"].lower()
+                    host.manager.fields[variable] = None
+                else:
+                    host.start_ok = False
+                host.activate()
+                self.assertEqual(host.casts, [])
+                self.assertEqual(host.registrations, [])
+                self.assertFalse(host.manager.fields["coolingdown"])
+
+    def test_compiled_cooldown_zero_thirty_sixty_five(self):
+        host = self.host()
+        host.activate()
+        self.assertEqual(host.registrations, [(0.0, 60.0, 60.0)])
+        self.assertEqual(host.casts, [(0.0, 0x01000803, "player", "player")])
+        host.advance(30)
+        host.activate()
+        self.assertEqual(len(host.casts), 1)
+        self.assertEqual(host.due, 60.0)
+        self.assertEqual(len(host.registrations), 1)
+        host.advance(35)
+        host.activate()
+        self.assertEqual(len(host.casts), 2)
+        self.assertEqual(host.registrations[-1], (65.0, 60.0, 125.0))
+        self.assertEqual(host.starts, 1)
+
+    def test_rapid_fresh_effect_instances_cannot_extend_or_bypass_lock(self):
+        host = self.host()
+        host.activate()
+        for _ in range(100):
+            host.activate()
+        host.advance(59.99)
+        for _ in range(100):
+            host.activate()
+        self.assertEqual(len(host.casts), 1)
+        self.assertEqual(host.registrations, [(0.0, 60.0, 60.0)])
+        host.advance(0.01)
+        host.activate()
+        self.assertEqual(len(host.casts), 2)
+
+    def test_reentry_during_native_calls_cannot_cast_twice(self):
+        for phase in ("getrace_hook", "register_hook"):
+            with self.subTest(phase=phase):
+                host = self.host()
+                setattr(host, phase, lambda game: game.activate())
+                host.activate()
+                self.assertEqual(len(host.casts), 1)
+                self.assertEqual(host.registrations, [(0.0, 60.0, 60.0)])
+
+    def test_saved_lock_and_mock_native_timer_survive_clock_origin_change(self):
+        host = self.host()
+        host.activate()
+        host.advance(15)
+        snapshot = host.save()
+        loaded = self.host()
+        loaded.load(snapshot)
+        loaded.activate()
+        loaded.advance(44)
+        loaded.activate()
+        self.assertEqual(loaded.casts, [])
+        self.assertEqual(loaded.registrations, [])
+        self.assertEqual(loaded.due, 45.0)
+        loaded.advance(1)
+        loaded.activate()
+        self.assertEqual(loaded.casts, [(45.0, 0x01000803, "player", "player")])
+        self.assertEqual(loaded.registrations, [(45.0, 60.0, 105.0)])
+
+    def test_saved_ready_state_does_not_replay_or_schedule(self):
+        host = self.host()
+        host.activate()
+        host.advance(60)
+        self.assertIsNone(host.due)
+        loaded = self.host()
+        loaded.load(host.save())
+        self.assertEqual(loaded.casts, [])
+        self.assertIsNone(loaded.due)
+        loaded.activate()
+        self.assertEqual(len(loaded.casts), 1)
 
     def test_localized_strings_complete(self):
         for language, name in [("English", "Keen Senses"), ("Japanese", "鋭敏な感覚")]:
@@ -251,10 +295,15 @@ class ArtifactTests(unittest.TestCase):
             key = struct.unpack("<I", field(self.forms[0x800], "FULL"))[0]
             self.assertEqual(normal[key], name)
             for record in self.records[1:]:
-                for raw in fields(record, "FULL") + fields(record, "DNAM"):
+                # DNAM is a translated description only for MGEF; for QUST
+                # it is the binary quest-data struct, not a strings-table ID.
+                names = fields(record, "FULL")
+                if record["type"] == "MGEF":
+                    names += fields(record, "DNAM")
+                for raw in names:
                     key = struct.unpack("<I", raw)[0]
                     self.assertIn(key, normal)
-                for raw in fields(record, "DESC"):
+                for raw in fields(record, "DESC") + fields(record, "NNAM"):
                     key = struct.unpack("<I", raw)[0]
                     if key:
                         self.assertIn(key, descriptions)
@@ -271,29 +320,29 @@ class ArtifactTests(unittest.TestCase):
 
     def test_size_repair_changes_only_known_marker_and_rejects_other_damage(self):
         import tempfile
-        raw = (self.package / "Scripts" / "LKS_KeenSensesEffect.pex").read_bytes()
-        # Body is 494 bytes; canonical size includes its own four-byte marker.
-        marker = bytes.fromhex("000001f2")
-        self.assertEqual(raw.count(marker), 1)
-        position = raw.index(marker)
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "compiler-output.pex"
-            bad = raw[:position] + bytes.fromhex("ee010000") + raw[position + 4:]
-            path.write_bytes(bad)
-            with self.assertRaises(ValueError):
-                read_pex(path)
-            self.assertTrue(repair_caprica_skyrim_size(path))
-            self.assertEqual(path.read_bytes(), raw)
-            self.assertFalse(repair_caprica_skyrim_size(path))
-            old_body_only = raw[:position] + bytes.fromhex("000001ee") + raw[position + 4:]
-            path.write_bytes(old_body_only)
-            with self.assertRaises(ValueError):
-                read_pex(path)
-            wrong = raw[:position] + bytes.fromhex("ed010000") + raw[position + 4:]
-            path.write_bytes(wrong)
-            with self.assertRaises(ValueError):
-                repair_caprica_skyrim_size(path)
-            self.assertEqual(path.read_bytes(), wrong)
+        for script in ("LKS_KeenSensesEffect", "LKS_KeenSensesController"):
+            raw = (self.package / "Scripts" / (script + ".pex")).read_bytes()
+            parsed = read_pex(raw)
+            obj = parsed["objects"][0]
+            position, size = obj["size_offset"], obj["encoded_size"]
+            with tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "compiler-output.pex"
+                bad = raw[:position] + struct.pack("<I", size - 4) + raw[position + 4:]
+                path.write_bytes(bad)
+                with self.assertRaises(ValueError):
+                    read_pex(path)
+                self.assertTrue(repair_caprica_skyrim_size(path))
+                self.assertEqual(path.read_bytes(), raw)
+                self.assertFalse(repair_caprica_skyrim_size(path))
+                old_body_only = raw[:position] + struct.pack(">I", size - 4) + raw[position + 4:]
+                path.write_bytes(old_body_only)
+                with self.assertRaises(ValueError):
+                    read_pex(path)
+                wrong = raw[:position] + struct.pack("<I", size - 5) + raw[position + 4:]
+                path.write_bytes(wrong)
+                with self.assertRaises(ValueError):
+                    repair_caprica_skyrim_size(path)
+                self.assertEqual(path.read_bytes(), wrong)
 
 
 if __name__ == "__main__":

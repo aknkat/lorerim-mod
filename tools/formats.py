@@ -109,6 +109,9 @@ def vmad(record):
                 raise ValueError("Unexpected alias binding")
             properties[prop] = form
         scripts[name] = {"flags": flags, "properties": properties}
+    if record["type"] == "QUST" and r.pos < len(r.data):
+        if r.number("B") != 2 or r.number("H") != 0 or r.string() != "" or r.number("H") != 0:
+            raise ValueError("Unexpected quest fragments or aliases")
     r.finish()
     return scripts
 
@@ -147,7 +150,7 @@ def normalize_pex(path):
     r.take(16)
     for _ in range(3):
         r.string()
-    names = ["LKS_KeenSensesEffect.psc", "aknkat", "reproducible-build"]
+    names = [path.stem + ".psc", "aknkat", "reproducible-build"]
     header = data[:8] + bytes(8)
     for name in names:
         raw = name.encode("utf-8")
@@ -263,7 +266,9 @@ def read_pex(path):
     user_flags = [(indexed(), r.number("B")) for _ in range(r.number("H"))]
     objects = []
     for _ in range(r.number("H")):
-        name, length = indexed(), r.number("I")
+        name = indexed()
+        size_offset = r.pos
+        length = r.number("I")
         if length < 4:
             raise ValueError("Invalid PEX object size")
         end = r.pos + length - 4
@@ -286,6 +291,7 @@ def read_pex(path):
         if r.pos != end:
             raise ValueError("Invalid PEX object size")
         objects.append({"name": name, "parent": parent, "properties": properties,
-                        "variables": variables, "states": states})
+                        "variables": variables, "states": states,
+                        "size_offset": size_offset, "encoded_size": length})
     r.finish()
     return {"objects": objects, "metadata": metadata, "timestamp": timestamp}
