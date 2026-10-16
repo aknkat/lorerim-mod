@@ -7,6 +7,15 @@ using Mutagen.Bethesda.Strings;
 using Mutagen.Bethesda.Strings.DI;
 using System.Text.Json;
 
+if (args.Length == 2 && args[0] == "--verify-pex")
+{
+    var pex = Mutagen.Bethesda.Pex.PexFile.CreateFromFile(args[1], GameCategory.Skyrim);
+    if (pex.Objects.Count != 1 || pex.Objects[0].Name != "LKS_KeenSensesEffect")
+        throw new InvalidDataException("Unexpected PEX script objects.");
+    Console.WriteLine("Mutagen independent PEX readback: complete Skyrim file and object sizes passed.");
+    return;
+}
+
 // External IDs checked against Mutagen.Bethesda.FormKeys.SkyrimSE/Skyrim.
 // No game data, existing record payload, or master override is shipped.
 static FormKey Vanilla(uint id) => new(ModKey.FromNameAndExtension("Skyrim.esm"), id);
@@ -16,7 +25,7 @@ var key = ModKey.FromNameAndExtension("KhajiitKeenSenses.esp");
 var mod = new SkyrimMod(key, SkyrimRelease.SkyrimSE);
 mod.ModHeader.Flags = SkyrimModHeader.HeaderFlag.Small | SkyrimModHeader.HeaderFlag.Localized;
 mod.ModHeader.Author = "aknkat";
-mod.ModHeader.Description = "Keen Senses 0.1.0 - new records only; game validation pending.";
+mod.ModHeader.Description = "Keen Senses 0.1.1 - area-based detection; final game validation pending.";
 mod.ModHeader.Stats.Version = 1.7f;
 
 var power = new Spell(new FormKey(key, 0x800), SkyrimRelease.SkyrimSE);
@@ -122,26 +131,35 @@ trigger.Conditions.Add(Compare(hasCooldown, 0));
 power.Effects.Add(trigger);
 
 SetSpell(detectionSpell, "LKS_DetectionPulse", "LKS Internal Detection Pulse", "LKS Internal Detection Pulse", SpellType.Spell);
+detectionSpell.Flags |= SpellDataFlag.AreaEffectIgnoresLOS;
 SetEffect(detect, "LKS_DetectLivingEffect", "Keen Senses: Detection", "鋭敏な感覚：探知");
-detect.Flags = MagicEffect.Flag.Recover | MagicEffect.Flag.NoArea
+// Based on the actual exported native FF Detect Life records (001019D8-DB).
+// The shader applies over EFIT.Area. NoArea/area=0 disables that distribution.
+detect.Flags = MagicEffect.Flag.Recover | MagicEffect.Flag.NoMagnitude
+    | MagicEffect.Flag.FXPersist | MagicEffect.Flag.NoRecast
     | MagicEffect.Flag.HideInUI | MagicEffect.Flag.NoHitEvent | MagicEffect.Flag.Painless;
 detect.Archetype = new MagicEffectArchetype(MagicEffectArchetype.TypeEnum.DetectLife)
-    { ActorValue = ActorValue.DetectLifeRange };
-detect.HitShader.SetTo(Vanilla(0x146)); // LifeDetected: same shader for friend and foe.
+    { ActorValue = ActorValue.None };
+detect.SpellmakingArea = 27;
+detect.DualCastScale = 1;
+// This shader rendered red in the user's working Aura Whisper comparison.
+// A reference only: never override/copy a third-party winning shader record.
+detect.HitShader.SetTo(Vanilla(0xDC209));
 detect.Description = Text("Detect living creatures within about 8 metres for 2 seconds.", "半径約8mの生物を2秒間探知する。");
-// Native Detect Life evaluates its filter against each candidate actor.
-// Keep subjects living, non-undead, non-Dwemer and different from the player.
+// Native-style target filters; no self-exclusion condition that can reject
+// application to the caster before the area effect is distributed.
 detect.Conditions.Add(Compare(new GetDeadConditionData(), 0));
 detect.Conditions.Add(Compare(Keyword(0x13796), 0));
 detect.Conditions.Add(Compare(Keyword(0x1397A), 0));
-detect.Conditions.Add(Compare(IsPlayer(), 0));
+detect.Conditions.Add(Compare(Keyword(0xF82F4), 0)); // Respect native NoDetectLife.
+detect.Conditions.Add(Compare(new IsUndeadConditionData(), 0));
 var distance = new GetDistanceConditionData();
 distance.Target.Link.SetTo(Vanilla(0x14));
 detect.Conditions.Add(Compare(distance, 560, CompareOperator.LessThanOrEqualTo));
-// Detect Life magnitude is feet, not the EFIT area field. The explicit
-// distance condition clips its native radius to 560 units (~8 m at 70 u/m).
+// Native SPELs use EFIT.Area, not Magnitude, for their detection radius.
+// 27 feet covers 576 units; the distance condition clips that to 560 (~8 m).
 var pulse = new Effect { Data = new EffectData
-    { Magnitude = 26.25f, Area = 0, Duration = 2 } };
+    { Magnitude = 0, Area = 27, Duration = 2 } };
 pulse.BaseEffect.SetTo(detect.FormKey);
 detectionSpell.Effects.Add(pulse);
 
@@ -162,7 +180,7 @@ foreach (var link in records.SelectMany(r => r.EnumerateFormLinks()))
     if (link.FormKey.ModKey == key && !records.Any(r => r.FormKey == link.FormKey))
         throw new InvalidDataException($"Broken local link: {link.FormKey}");
 }
-var report = new { plugin = key.FileName.String, version = "0.1.0",
+var report = new { plugin = key.FileName.String, version = "0.1.1",
     status = "structural_validation_only_game_validation_pending",
     master = "Skyrim.esm", esl = true, overrides = 0,
     records = records.Select(r => new { id = $"{r.FormKey.ID:X6}", type = r.GetType().Name,
@@ -170,12 +188,16 @@ var report = new { plugin = key.FileName.String, version = "0.1.0",
     external_references = new Dictionary<string, string> {
         ["PlayerRef"] = "00000014", ["KhajiitRace"] = "00013745",
         ["KhajiitRaceVampire"] = "00088845", ["ActorTypeUndead"] = "00013796",
-        ["ActorTypeDwarven"] = "0001397A", ["LifeDetected"] = "00000146",
+        ["ActorTypeDwarven"] = "0001397A", ["NoDetectLife"] = "000F82F4",
+        ["LifeDetectedEnemy"] = "000DC209",
         ["Voice"] = "00025BEE" },
-    native_detection_magnitude_feet = 26.25, distance_filter_units = 560,
+    native_detection_area_feet = 27, detection_magnitude = 0, distance_filter_units = 560,
+    reference_data = "User-provided LKS-detection-records.txt; 3494 loaded files",
     detection_seconds = 2, cooldown_seconds = 60,
     languages = new[] { "English", "Japanese" },
     skse_required = false, requiem_master_required = false };
-File.WriteAllText(Path.Combine(output, "build-manifest.json"),
+var metadata = Path.Combine(output, "KhajiitKeenSenses");
+Directory.CreateDirectory(metadata);
+File.WriteAllText(Path.Combine(metadata, "build-manifest.json"),
     JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }) + "\n");
 Console.WriteLine($"Wrote {path}; Mutagen readback: 4 new records, 0 overrides, Skyrim.esm only.");

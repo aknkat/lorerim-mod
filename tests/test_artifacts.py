@@ -158,11 +158,18 @@ class ArtifactTests(unittest.TestCase):
     def test_detection_native_shader_range_and_duration(self):
         data = field(self.forms[0x802], "DATA")
         self.assertEqual(len(data), 152)
-        self.assertEqual(struct.unpack_from("<I", data, 32)[0], 0x146)
-        self.assertEqual(struct.unpack_from("<Ii", data, 64), (19, 56))
+        self.assertEqual(struct.unpack_from("<I", data, 32)[0], 0xDC209)
+        self.assertEqual(struct.unpack_from("<Ii", data, 64), (19, -1))
+        flags = struct.unpack_from("<I", data)[0]
+        self.assertFalse(flags & (0x800 | 0x200), "NoArea/NoDuration would disable the intended pulse")
+        self.assertTrue(flags & 0x1000, "FXPersist absent")
+        self.assertTrue(flags & 0x400, "NoMagnitude absent")
         self.assertEqual(struct.unpack_from("<II", data, 80), (1, 0))
         self.assertEqual(struct.unpack_from("<f", data, 104)[0], 0)
-        self.assertEqual(struct.unpack("<fII", field(self.forms[0x803], "EFIT")), (26.25, 0, 2))
+        self.assertEqual(struct.unpack("<fII", field(self.forms[0x803], "EFIT")), (0, 27, 2))
+        self.assertGreaterEqual(27 * 64 / 3, 560, "Area sphere must cover the distance filter")
+        self.assertTrue(struct.unpack_from("<I", field(self.forms[0x803], "SPIT"), 4)[0] & 0x80000,
+                        "AreaEffectIgnoresLOS absent")
         self.assertEqual(field(self.forms[0x803], "EFID"), struct.pack("<I", 0x01000802))
         self.assertEqual(struct.unpack_from("<I", field(self.forms[0x803], "SPIT"), 0)[0], 0)
         self.assertEqual(fields(self.forms[0x802], "VMAD"), [])
@@ -170,20 +177,24 @@ class ArtifactTests(unittest.TestCase):
     def test_emitted_detection_filter_truth_table(self):
         filters = conditions(self.forms[0x802])
         self.assertEqual([(c["function"], c["p1"]) for c in filters],
-                         [(46, 0), (560, 0x13796), (560, 0x1397A), (136, 0x14), (1, 0x14)])
+                         [(46, 0), (560, 0x13796), (560, 0x1397A),
+                          (560, 0xF82F4), (715, 0), (1, 0x14)])
         self.assertEqual(filters[-1]["operator"], 5)
         self.assertEqual(filters[-1]["value"], 560)
-        for distance, dead, undead, machine, self_, expected in [
-            (0, 0, 0, 0, 0, True), (559.9, 0, 0, 0, 0, True),
-            (560, 0, 0, 0, 0, True), (560.1, 0, 0, 0, 0, False),
-            (100, 1, 0, 0, 0, False), (100, 0, 1, 0, 0, False),
-            (100, 0, 0, 1, 0, False), (0, 0, 0, 0, 1, False)]:
-            with self.subTest(distance=distance, dead=dead, undead=undead, machine=machine, is_player=self_):
+        for distance, dead, undead, machine, hidden, is_undead, expected in [
+            (0, 0, 0, 0, 0, 0, True), (559.9, 0, 0, 0, 0, 0, True),
+            (560, 0, 0, 0, 0, 0, True), (560.1, 0, 0, 0, 0, 0, False),
+            (100, 1, 0, 0, 0, 0, False), (100, 0, 1, 0, 0, 0, False),
+            (100, 0, 0, 1, 0, 0, False), (100, 0, 0, 0, 1, 0, False),
+            (100, 0, 0, 0, 0, 1, False)]:
+            with self.subTest(distance=distance, dead=dead, undead=undead, machine=machine,
+                              hidden=hidden, is_undead=is_undead):
                 values = {(46, 0): dead, (560, 0x13796): undead, (560, 0x1397A): machine,
-                          (136, 0x14): self_, (1, 0x14): distance}
+                          (560, 0xF82F4): hidden, (715, 0): is_undead, (1, 0x14): distance}
                 self.assertEqual(passes(filters, values), expected)
         self.assertTrue(all(c["run_on"] == 0 and not c["or"] for c in filters))
         self.assertNotIn(59, [c["function"] for c in filters])  # hostility
+        self.assertNotIn(136, [c["function"] for c in filters])  # do not block self delivery
 
     def test_real_pex_matches_esp_bindings(self):
         self.assertEqual(self.pex["timestamp"], 0)
@@ -243,8 +254,8 @@ class ArtifactTests(unittest.TestCase):
     def test_size_repair_changes_only_known_marker_and_rejects_other_damage(self):
         import tempfile
         raw = (self.package / "Scripts" / "LKS_KeenSensesEffect.pex").read_bytes()
-        # Captured single-object v0.1.0 fixture: actual object body is 494 bytes.
-        marker = bytes.fromhex("000001ee")
+        # Body is 494 bytes; canonical size includes its own four-byte marker.
+        marker = bytes.fromhex("000001f2")
         self.assertEqual(raw.count(marker), 1)
         position = raw.index(marker)
         with tempfile.TemporaryDirectory() as directory:
@@ -256,6 +267,10 @@ class ArtifactTests(unittest.TestCase):
             self.assertTrue(repair_caprica_skyrim_size(path))
             self.assertEqual(path.read_bytes(), raw)
             self.assertFalse(repair_caprica_skyrim_size(path))
+            old_body_only = raw[:position] + bytes.fromhex("000001ee") + raw[position + 4:]
+            path.write_bytes(old_body_only)
+            with self.assertRaises(ValueError):
+                read_pex(path)
             wrong = raw[:position] + bytes.fromhex("ed010000") + raw[position + 4:]
             path.write_bytes(wrong)
             with self.assertRaises(ValueError):

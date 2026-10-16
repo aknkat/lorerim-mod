@@ -20,11 +20,11 @@ def windows_path(path, wine):
     return "Z:" + path.replace("/", "\\") if wine else path
 
 
-def archive(package, output):
+def archive(package, output, checksum_path="SHA256SUMS.txt"):
     paths = sorted(p for p in package.rglob("*") if p.is_file())
     checksums = "".join(f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.relative_to(package).as_posix()}\n"
-                        for p in paths if p.name != "SHA256SUMS.txt")
-    (package / "SHA256SUMS.txt").write_text(checksums, encoding="utf-8")
+                        for p in paths if p.relative_to(package).as_posix() != checksum_path)
+    (package / checksum_path).write_text(checksums, encoding="utf-8")
     paths = sorted(p for p in package.rglob("*") if p.is_file())
     output.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as z:
@@ -98,18 +98,23 @@ def main():
     subprocess.run(command, cwd=ROOT / "scripts" / "source", check=True)
     pex = PACKAGE / "Scripts" / "LKS_KeenSensesEffect.pex"
     if repair_caprica_skyrim_size(pex):
-        print("Corrected Caprica's PEX object-size endian marker; full strict PEX parse passed.")
+        print("Normalized PEX object size (byte order and inclusive length); strict parse passed.")
     normalize_pex(pex)
+    subprocess.run([args.dotnet, "run", "--project", str(project), "--no-build",
+                    "--configuration", "Release", "--", "--verify-pex", str(pex)],
+                   cwd=ROOT, check=True)
     shutil.copy2(ROOT / "scripts" / "source" / "LKS_KeenSensesEffect.psc", PACKAGE / "Scripts" / "Source")
+    metadata = PACKAGE / "KhajiitKeenSenses"
     for name in ("README.md", "LICENSE"):
-        packaged_name = "KhajiitKeenSenses-LICENSE.txt" if name == "LICENSE" else name
-        shutil.copy2(ROOT / name, PACKAGE / packaged_name)
-    shutil.copytree(ROOT / "docs", PACKAGE / "docs")
+        shutil.copy2(ROOT / name, metadata / ("LICENSE.txt" if name == "LICENSE" else name))
+    shutil.copytree(ROOT / "docs", metadata / "docs", ignore=shutil.ignore_patterns(
+        "DETECTION_PROBE.md", "EXPORT_DETECTION_RECORDS.md"))
     subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-v"], cwd=ROOT, check=True)
-    archive(PACKAGE, ROOT / "dist" / "KhajiitKeenSenses-0.1.0-MO2.zip")
+    archive(PACKAGE, ROOT / "dist" / "KhajiitKeenSenses-0.1.1-MO2.zip",
+            checksum_path="KhajiitKeenSenses/SHA256SUMS.txt")
     subprocess.run([sys.executable, str(ROOT / "tools" / "verify_archive.py"),
-                    str(ROOT / "dist" / "KhajiitKeenSenses-0.1.0-MO2.zip")], cwd=ROOT, check=True)
-    source_archive(ROOT / "dist" / "KhajiitKeenSenses-0.1.0-source.zip")
+                    str(ROOT / "dist" / "KhajiitKeenSenses-0.1.1-MO2.zip")], cwd=ROOT, check=True)
+    source_archive(ROOT / "dist" / "KhajiitKeenSenses-0.1.1-source.zip")
 
 
 if __name__ == "__main__":

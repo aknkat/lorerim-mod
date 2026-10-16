@@ -156,11 +156,13 @@ def normalize_pex(path):
 
 
 def repair_caprica_skyrim_size(path):
-    """Correct Caprica v0.3.0's little-endian size marker in big-endian PEX.
+    """Normalize Caprica's object-size marker to the CK-compatible PEX layout.
 
     The upstream PexWriter.endObject writes a uint32 marker directly rather
     than through its endian-aware writer. Only the exact, single-object case
-    with a matching little-endian size is accepted. Strictly parse the entire
+    with a matching little-endian BODY size is accepted. The canonical size
+    includes the four-byte size field itself, as Mutagen PexObject confirms.
+    Strictly parse the entire
     repaired candidate before writing; do not skip or relax validation.
     """
     path = Path(path)
@@ -182,11 +184,12 @@ def repair_caprica_skyrim_size(path):
     position = r.pos
     raw = r.take(4)
     actual = len(data) - r.pos
+    canonical = actual + 4
     changed = False
-    if struct.unpack(">I", raw)[0] != actual:
+    if struct.unpack(">I", raw)[0] != canonical:
         if struct.unpack("<I", raw)[0] != actual:
             raise ValueError("Object size mismatch is not the known endian bug")
-        data = data[:position] + struct.pack(">I", actual) + data[position + 4:]
+        data = data[:position] + struct.pack(">I", canonical) + data[position + 4:]
         changed = True
     read_pex(data)
     if changed:
@@ -261,7 +264,9 @@ def read_pex(path):
     objects = []
     for _ in range(r.number("H")):
         name, length = indexed(), r.number("I")
-        end = r.pos + length
+        if length < 4:
+            raise ValueError("Invalid PEX object size")
+        end = r.pos + length - 4
         parent, doc, flags, state = indexed(), indexed(), r.number("I"), indexed()
         variables = {}
         for _ in range(r.number("H")):

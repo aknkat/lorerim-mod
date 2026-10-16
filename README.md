@@ -1,65 +1,61 @@
 # LoreRim 5：鋭敏な感覚 / Khajiit Keen Senses
 
-**v0.1.0 試験版。ファイル検査11件に合格しましたが、ユーザーの実機では探知が表示されていません。完成版ではありません。**
+**v0.1.1 修正版。既存レコードの上書き0件。ファイル検査済み、修正版の実機動作は最終確認待ちです。**
 
-探知MGEFの自己除外条件がプレイヤー自身への適用を拒否するログが得られ、この条件だけを外したprobe1を作りましたが、再試験でも探知は表示されませんでした。同じ環境で標準のオーラ・ウィスパーは赤く広範囲に表示されています。次は [動作したレコードを一括取得する手順](docs/EXPORT_DETECTION_RECORDS.md) により実データを比較します。以下の仕様表は設計値であり、実機での成立を示すものではありません。
+[MO2導入用ZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSenses-0.1.1-MO2.zip) / [制作ソースZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSenses-0.1.1-source.zip)
 
-カジートのプレイヤーが任意に使う Lesser Power を追加します。既存のナイトアイは変更しません。ゲームに付与する操作は手動で行うため、種族・NPC・Perkを上書きする必要がありません。
+カジートのプレイヤー向けに、半径約8mの生物を2秒間探知する特殊能力（Lesser Power）を追加します。再使用は60秒後、マジカ・スタミナ消費は0。既存のナイトアイ、種族、Perk、NPCは変更しません。
 
-| 項目 | 実装 |
+## v0.1.1で修正したこと
+
+v0.1.0とprobe1はユーザーの実機で探知が表示されませんでした。送付されたSSEEditのレコード情報から、標準探知は **Area** で範囲を指定している一方、自作版は **Area 0・No Area有効** だったことが分かりました。
+
+修正版は標準のFire and Forget生命探知を参考に、Areaを27 feet、距離条件を560 units以下（約8m）、持続を2秒に変更しています。No Areaを解除し、FX Persistを有効、Actor ValueをNoneに修正しました。表示には同じ環境の標準能力で表示できた **LifeDetectedEnemy** を敵味方共通で使用します。想定される表示は赤色です。
+
+自己除外条件は削除し、死体・アンデッド・ドワーフ機械の除外条件を維持します。標準のNoDetectLifeとIsUndeadも参照します。自己発光の有無、対象の除外と実効半径は修正版の実機確認待ちです。加えて、PEXの長さフィールドをCreation Kit形式に修正し、Mutagenの独立したPEXリーダーでも検査します。詳細は [レコード比較](docs/RECORD_COMPARISON_0.1.1.md)。
+
+## 導入・更新
+
+1. ゲームを終了し、`KhajiitKeenSenses-0.1.1-MO2.zip` をMO2の「アーカイブからMODをインストール」で導入します。
+2. 旧版がある場合は **Replace（置き換え）**。同名ESPを提供する旧版・診断版を重ねず、1つだけ有効にします。置き換えにより旧版の共通名文書も取り除きます。
+3. 左側のMODと、右側の `KhajiitKeenSenses.esp` を有効にします。ESLフラグ付きESPです。
+4. 能力を追加済みのセーブでは、同じ能力をそのまま使います。ESP名・4件のローカルFormID・Papyrusプロパティ名は維持しています。
+5. 初回のみ、カジートのセーブでコンソールから能力を追加します。
+
+送付されたロードオーダーではIndexは **FE:CFD** でした。このままなら、追加コマンドは次です。
+
+```text
+player.addspell FECFD800
+```
+
+Indexが変わった場合はMO2右側の現在値を使います。`FE:xxx` なら完全なFormIDは `FExxx800`。古い案内の `FE:CF5` を固定して使わないでください。
+
+魔法メニューの特殊能力から「鋭敏な感覚」を選び、通常の特殊能力キーで発動します。生きたNPCの近くで使い、約2秒の表示と60秒の再使用制限をまとめて確認してください。クールダウンは「有効な効果」の **鋭敏な感覚：再使用待ち / Keen Senses: Cooldown** です。表示が消えるまで再発動を防ぐ設計です。
+
+まず確認する点を [実機確認手順](docs/IN_GAME_CHECKLIST.md) の最初にまとめています。修正版をゲームで動作確認した結果はまだありません。
+
+## 仕様と依存
+
+| 項目 | 設計 |
 |---|---|
-| 対象 | プレイヤーの KhajiitRace / KhajiitRaceVampire |
-| 探知 | 生存中の周囲のActor。アンデッド・ドワーフ機械・死体・プレイヤー自身を除外 |
-| 範囲 | ネイティブ探知の magnitude 26.25 feet、追加の距離条件 560 units（約8m） |
-| 表示時間 | 2秒 |
-| 再使用制限 | 60秒の制御効果。再適用禁止と発動条件で再発動・時間の更新を防ぐ設計 |
-| 費用 | マジカ・スタミナとも0。スキル経験値も付与しない |
-| 場所・時刻 | 屋内外・昼夜の条件なし |
-| 敵味方 | 区別する条件なし。同じ LifeDetected シェーダーを使う |
+| 使用者 | プレイヤーのKhajiitRace / KhajiitRaceVampireのみ |
+| 能力 | 任意発動のLesser Power |
+| 範囲 | Area 27 feetの範囲をGetDistance PlayerRef <= 560 unitsで制限。約8m |
+| 持続・再使用 | 探知2秒、制御効果60秒 |
+| 費用 | マジカ・スタミナ0、スキル経験値0 |
+| 除外 | 死体、ActorTypeUndead / IsUndead、ActorTypeDwarven、標準のNoDetectLife |
+| 場所・時刻 | 屋内外・昼夜による条件なし |
+| 敵味方 | 識別せず、共通の赤い探知シェーダーを参照 |
 
-## 必要なもの
+対象はSkyrim SE 1.6.1170 / LoreRim v5.0.4.8 Default / Requiem / Cabbage ENB。直接のマスターは **Skyrim.esmのみ**。バニラPapyrusだけを使い、追加のSKSE・DLL・Address Library・Requiemマスターは要求しません。LoreRim自体の依存は通常どおり有効にします。
 
-- Skyrim SE 1.6.1170（対象バージョン。実機起動は未実施）
-- `Skyrim.esm`。このMOD自身のマスター依存はこれだけです。
-- MO2。LoreRim v5.0.4.8 Default / Requiem / Cabbage ENBを想定しています。
+## 競合を避ける構成
 
-このMODのスクリプトはバニラPapyrusのみを呼びます。**追加のSKSE・DLL・Address Library・Requiemパッチは同梱せず、マスター依存としても要求しません。** LoreRim自体が要求するものは通常どおり有効にしてください。LoreRim/Requiemの実ファイルを照合できていないため、最終ロードオーダーでの相性は別途確認が必要です。
-
-## MO2で導入する
-
-1. 導入前のセーブを別名で残します。
-2. `KhajiitKeenSenses-0.1.0-MO2.zip` をMO2の「アーカイブからMODをインストール」で導入します。ZIPのルートがData相当です。
-3. 左側のMODと右側の `KhajiitKeenSenses.esp` を有効にします。これは **ESLフラグ付きESP** なので、通常のESP枠を1つ消費する構成ではありません。
-4. 通常のLoreRimの管理手順で配置します。最初にMO2からSSEEditでこのESPを読み込み、「Check for Errors」を実施してください。生成パッチがある場合は、4つの新規レコードの最終値も確認します。[確認手順](docs/IN_GAME_CHECKLIST.md)に詳細があります。
-5. カジートのセーブを起動し、コンソールで能力を付与します。
-
-### 付与するFormID
-
-付与するレコードは **`LKS_KeenSensesPower`、ローカルID `800`** です。
-
-MO2右側の「Mod Index」が `FE:xxx` の場合、ゲーム内の完全なFormIDは **`FExxx800`** になります。`xxx` は実際の16進インデックスに置き換えてください。
-
-```text
-player.addspell FExxx800
-```
-
-例えばMod Indexが `FE:123` なら `player.addspell FE123800` です。これは例であり、自分のロードオーダーのIDを使います。
-
-英語表示の場合は `help "Keen Senses" 4` でも検索できます。結果のうち `SPEL` の能力を選び、CooldownやInternal Detection Pulseは付与しません。日本語表示で入力が難しい場合はMO2のインデックスを使ってください。
-
-魔法メニューの特殊能力から選択し、通常の特殊能力キーで使います。60秒制限中は探知が再発動しない設計です。「有効な効果」の **Keen Senses: Cooldown / 鋭敏な感覚：再使用待ち** が終了するまで待ちます。
-
-## 能力の解除・MODの取り外し
-
-同じFormIDで以下を実行すれば能力の付与を解除できます。
-
-```text
-player.removespell FExxx800
-```
-
-動作中の探知と再使用待ちが消えるまで、メニューを閉じた通常のゲームプレイで最大60秒待ち、別名で保存します。その後MO2で無効化できます。制御スクリプトにはクエスト・常駐更新・イベント登録・永続的なActorValue変更がありません。ただし、MODを外したセーブに何も残らないことを実機で保証したものではありません。元の状態へ確実に戻す場合は導入前のセーブを使います。
-
-## ファイルと競合
+- 2 MGEF + 2 SPELの4件すべてがこのESP固有の新規レコード。既存の種族・ナイトアイ・Perk・NPC・魔法・シェーダーの上書きは0件。
+- Papyrusは固有名の `LKS_KeenSensesEffect` 1件。既存スクリプトの置き換えや常駐クエストはありません。
+- 生命探知シェーダーと標準キーワードは参照のみ。今回は送付されたロードオーダーでの定義を照合済みです。
+- README・ライセンス・検査記録は `KhajiitKeenSenses/` 以下にまとめ、他MODの共通名文書と重複するパスを避けます。
+- ユーザー提供のFSMPアーカイブとのファイルパス重複も検査します。
 
 ```text
 KhajiitKeenSenses.esp
@@ -67,23 +63,25 @@ Scripts/LKS_KeenSensesEffect.pex
 Scripts/Source/LKS_KeenSensesEffect.psc
 Strings/KhajiitKeenSenses_English.{STRINGS,DLSTRINGS,ILSTRINGS}
 Strings/KhajiitKeenSenses_Japanese.{STRINGS,DLSTRINGS,ILSTRINGS}
-docs/...
-README.md
-KhajiitKeenSenses-LICENSE.txt
-build-manifest.json
-SHA256SUMS.txt
+KhajiitKeenSenses/README.md
+KhajiitKeenSenses/LICENSE.txt
+KhajiitKeenSenses/build-manifest.json
+KhajiitKeenSenses/SHA256SUMS.txt
+KhajiitKeenSenses/docs/...
 ```
 
-4件すべてがこのESP自身の新規レコードです。既存のRACE、PERK、SPEL、MGEF、NPC、クエスト、ナイトアイを上書きしません。機械とアンデッドは標準の `ActorTypeDwarven` / `ActorTypeUndead` キーワードで除外します。追加MODのActorに適切なキーワードがない場合や、LifeDetectedシェーダーが別MODで変更されている場合の挙動は未確認です。
+特別なActorや他MODの将来の変更まで含む互換性の保証ではありません。実効半径、探知対象、60秒制限とセーブ・ロードは [検証記録](docs/VALIDATION.md) の未確認項目として残しています。
 
-2026-10-16：梱包上のライセンス名を `KhajiitKeenSenses-LICENSE.txt` に変更しました。初版はルートの `LICENSE` がFSMPの同名文書と重複し、MO2に文書の競合が表示されました。ESP・PEX・Stringsの内容は同一です。修正前の版を導入済みの場合は、更新ZIPをMO2で既存MODへ **Replace（置き換え）** して、古い `LICENSE` を残さず入れ替えてください。
+## 解除
 
-英語・日本語の表示はゲームの言語設定に従います。その他の言語のStringsは同梱していません。
+現在のIndexに合わせて能力を外します。送付されたIndexのままなら次です。
 
-## 検証状況と再ビルド
+```text
+player.removespell FECFD800
+```
 
-[検証記録](docs/VALIDATION.md)に、実行した検査と未実施の実機確認を分けて記載しています。[実機チェックリスト](docs/IN_GAME_CHECKLIST.md)には8m境界・除外対象・60秒制限・セーブ/ロード・競合の確認手順があります。
+探知と再使用待ちの終了後、別名で保存してからMODを無効化します。確実に導入前へ戻す場合は導入前のセーブを使います。セーブからの完全な除去は制作環境では検証できていません。
 
-ESP生成プログラム、独立したバイナリ検査器、テスト、ビルド手順はリポジトリ内の `tools/`、`tests/`、`scripts/source/` にあります。[BUILD.md](docs/BUILD.md)を参照してください。
+## 制作ソース
 
-`KhajiitKeenSenses-0.1.0-source.zip` は制作ソース一式です。こちらは開発用で、MO2へインストールするアーカイブではありません。
+`KhajiitKeenSenses-0.1.1-source.zip` はESP生成コード、PSC、検査器、テスト、文書を含む開発用ZIPで、MO2へ導入するZIPではありません。[ビルド方法](docs/BUILD.md)と [参照元](docs/SOURCES.md) を同梱しています。ゲーム本体、Requiem/LoreRimのプラグイン、第三者ツールのバイナリは同梱しません。

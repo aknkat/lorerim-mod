@@ -17,9 +17,21 @@ def verify(path):
             parts = PurePosixPath(name).parts
             if name.startswith("/") or ".." in parts or "\\" in name:
                 raise ValueError("Unsafe archive path")
-        expected = {"KhajiitKeenSenses.esp", "Scripts/LKS_KeenSensesEffect.pex",
-                    "Scripts/Source/LKS_KeenSensesEffect.psc", "README.md",
-                    "KhajiitKeenSenses-LICENSE.txt", "build-manifest.json", "SHA256SUMS.txt"}
+        runtime = {"KhajiitKeenSenses.esp", "Scripts/LKS_KeenSensesEffect.pex",
+                   "Scripts/Source/LKS_KeenSensesEffect.psc"}
+        namespaced = "KhajiitKeenSenses/README.md" in names
+        # Keep verifying the archived v0.1.0/probe1 artifacts as historical files.
+        if namespaced:
+            metadata = "KhajiitKeenSenses/"
+            expected = runtime | {metadata + name for name in (
+                "README.md", "LICENSE.txt", "build-manifest.json", "SHA256SUMS.txt")}
+            if any(name not in runtime and not name.startswith((metadata,
+                   "Strings/KhajiitKeenSenses_")) for name in names):
+                raise ValueError("Unexpected shared file path outside the mod namespace")
+        else:
+            metadata = ""
+            expected = runtime | {"README.md", "KhajiitKeenSenses-LICENSE.txt",
+                                  "build-manifest.json", "SHA256SUMS.txt"}
         if not expected.issubset(names):
             raise ValueError("Incomplete MO2 data-root layout")
         if any(name.lower() == "license" for name in names):
@@ -29,14 +41,15 @@ def verify(path):
         if len([n for n in names if n.startswith("Strings/")]) != 6:
             raise ValueError("Missing English/Japanese localization tables")
         checked = set()
-        for line in archive.read("SHA256SUMS.txt").decode().splitlines():
+        checksum_path = metadata + "SHA256SUMS.txt"
+        for line in archive.read(checksum_path).decode().splitlines():
             digest, name = line.split("  ", 1)
             if hashlib.sha256(archive.read(name)).hexdigest() != digest:
                 raise ValueError(f"Checksum mismatch: {name}")
             if name in checked:
                 raise ValueError("Duplicate checksum entry")
             checked.add(name)
-        if checked != set(names) - {"SHA256SUMS.txt"}:
+        if checked != set(names) - {checksum_path}:
             raise ValueError("Incomplete checksum coverage")
     print(f"ZIP verified: {len(names)} files, safe MO2 root layout, CRC and SHA256 passed.")
 

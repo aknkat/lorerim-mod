@@ -1,53 +1,44 @@
-# 実機確認手順（未実施）
+# v0.1.1の実機確認
 
-対象は Skyrim SE 1.6.1170、LoreRim v5.0.4.8 Default、Requiem、Cabbage ENBです。以下はテスト手順であり、合格記録ではありません。
+これは確認手順で、合格済みの結果ではありません。まず下記3項目を1回の起動で確認します。
 
-## 1. 最終ロードオーダーとSSEEdit
+1. **近くの生きたNPCで通常の能力を使用**：赤い表示が約2秒出て消えるか。探知と再使用待ちを別々に確認する。
+2. **範囲と再使用制限**：十分遠いActorまで広範囲に光らないか。60秒以内の再発動で表示が出ず、60秒後に再び表示されるか。
+3. **除外**：比較できる対象があるとき、死体・アンデッド・ドワーフ機械が光らないか。
 
-- MO2からSSEEditを起動し、実際のロードオーダーとこのESPを読み込みます。
-- このESPを選び「Check for Errors」。未解決FormID、VMADプロパティ、不正なSPEL/MGEFがないことを確認します。
-- マスターは `Skyrim.esm` だけ、新規MGEFが2件・SPELが2件、既存のRACE/PERK/NPC/魔法レコードのオーバーライドは0件であることを確認します。
-- `LKS_KeenSensesPower` は Lesser Power、Self、Fire and Forget、Base Cost 0、効果のDuration 60。
-- `LKS_KeenSensesCooldownEffect` はScript、No Recast、No Death Dispel。No DurationはOFF。VMADのDetectionSpell、KhajiitRace、KhajiitVampireRaceが解決されること。
-- `LKS_DetectionPulse` の効果Duration 2、Magnitude 26.25、Area 0。
-- `LKS_DetectLivingEffect` はDetect Life、Hit Shader `Skyrim.esm:00000146 (LifeDetected)`、GetDistance条件が `PlayerRef <= 560`。死亡・アンデッド・ドワーフ機械の除外条件があること。
-- `LifeDetected`、KhajiitRace、KhajiitRaceVampire、ActorTypeUndead、ActorTypeDwarvenの最終勝者を確認します。生成パッチが新規レコードを変更している場合、その変更を調べてから動作を判断します。この制作環境ではRequiem/LoreRimの勝者を照合していません。
+旧版をReplaceして導入します。同じESP名とローカルFormIDを維持するため、能力を追加済みなら追加し直す必要はありません。送付されたロードオーダーではFE:CFDです。インデックスは現在のMO2表示を優先します。
 
-## 2. 探知と約8mの境界
+## 必要になった場合の切り分け
 
-- 生きた人間・動物をそれぞれ用意します。敵と味方が同じ色で見えること。
-- ターゲットをコンソールで選択し `getdistance player` で距離を調べます。この表示はゲーム内unitsです。
-- 近い生物、約500、550、560、570、600 unitsにいる生物で確認します。条件上の境界は560です。キャラクターの移動・Actorの原点による測定差も記録します。
-- 壁・扉越しの探知を確認します。昼・夜、屋内・屋外で同じ範囲になること。
-- 約2秒で表示が終了することを確認します。表示シェーダーのフェードや描画遅延も確認します。
-- Cabbage ENB有効時に確認します。必要ならENBの効果を一時的に切り替え、標準の生命探知が表示されるかと、この能力の表示を比較します。MODはENB設定を変更しません。
+主能力はローカル800、制御MGEFは801、探知MGEFは802、内部魔法は803。
 
-## 3. 除外対象
+FE:CFDのままなら、内部探知だけの確認は次です。通常の能力が表示できた場合、このコマンドを追加で試す必要はありません。
 
-- 生きた通常NPC・動物：探知される。
-- Draugr、Skeleton、Vampire等、ActorTypeUndead付きActor：探知されない。
-- Dwarven Spider、Sphere、Centurion等、ActorTypeDwarven付きActor：探知されない。
-- 死体：探知されない。探知中に死亡した場合の表示終了も確認する。
-- プレイヤー自身：探知されない。
-- LoreRimで追加された敵も確認する。独自の機械・アンデッドが標準キーワードを持たない場合、このキーワード判定だけでは除外できない。
-- 他の生物についてはSkyrimのDetect Life固有の扱いも確認する。特殊なActor、NoDetectLife設定、変身時のActorについて未検証。
+```text
+player.cast FECFD803 00000014 left
+```
 
-## 4. 再使用とセーブ/ロード
+コンソールを閉じて確認します。直接キャストはスクリプトと60秒制限を経由しません。標準のオーラ・ウィスパーは広範囲の別能力なので、8mや2秒の検査に使いません。
 
-- 発動を時刻0秒とし、1秒・2秒・30秒・59秒に再度発動を試す。探知が再発動せず、残時間が60秒に戻らないこと。
-- 60秒経過後に再発動できること。連打しても探知や制御効果が重複しないこと。
-- 発動15秒後に保存し、ロードする。残り約45秒の制限を維持すること。
-- 発動直後・終了直前の保存とロード、ゲームを完全終了してからの再開でも確認する。
-- メニュー中、ゲーム内の待機・睡眠、別セルへの移動、時間倍率を変更するMODによる扱いを確認する。タイマーはエンジンの魔法効果の残時間に従い、独自のリアルタイム時計は使わない。
-- 外部MODがこの制御効果を明示的にdispelした場合は制限が解除され得る。通常のLoreRimの操作でそうなるかを確認する。
+## 詳細検査（必要時のみ）
 
-## 5. 種族・NPC・既存能力・解除
+- 距離：対象をコンソールで選び `getdistance player`。近距離、500/550/560/570/600 unitsの境界を確認。Areaの配布範囲は27 feet、追加条件の上限は560 units。Actorの原点と移動による差を記録。
+- 表示：敵味方共通、屋内外・昼夜・壁や扉越しを確認。自身の発光の有無も記録。
+- 対象：通常NPC・動物は表示。死体・Draugr・Skeleton・Vampire・Dwarven Spider/Sphere/Centurionは除外。標準キーワードのない独自Actorは別途確認。NoDetectLifeは尊重する設計。
+- 制限：1/2/30/59秒時点で再使用しても表示と残時間が更新されないこと。60秒後に使用できること。
+- 保存：発動15秒後の保存/ロードで約45秒の制限が残ること。ロード時に探知が再発動しないこと。通常の有限MGEFの残時間を使い、独自時計や常駐更新は使わない。
+- 使用者：通常と吸血鬼のKhajiitプレイヤー。別種族やNPCへ手動付与しても使用できないこと。自動付与はない。
+- 非干渉：既存Night Eye、Perk、種族能力、スキル経験値、マジカ・スタミナを変更しないこと。
+- 解除：`player.removespell` と効果終了後、別名保存で無効化を確認。導入前セーブを保持する。
 
-- 通常のカジートとカジート吸血鬼のプレイヤーで発動できること。
-- 別種族のプレイヤーに手動で付与しても探知が発動しないこと。
-- カジートNPCを含め、NPCへの自動付与がないこと。試験用に主能力をNPCへ付与しても制御効果・探知が発動しないこと。
-- 主能力の使用中に種族を変更した場合の挙動を確認する。種族条件は発動時に評価する設計であり、開始済み2秒の探知を途中で取り消すスクリプトはない。
-- Night Eyeが元のまま残り、既存の魔法・Perk・種族能力・経験値・マジカ・スタミナに変更がないこと。
-- `player.removespell`、効果の終了、再付与を確認する。MODを外す確認は別名のテストセーブで行う。
+## SSEEditの検査値
 
-結果は「合格/不合格/未実施」と、使用したプロファイル・ロードオーダー・FormIDを添えて記録してください。
+ファイル側では制作環境で独立検査済み。ユーザー側で個別のRace最終勝者を調べる必要はありません。再確認する場合はこのESPの「Check for Errors」と4つの固有レコードを対象にします。
+
+- マスターSkyrim.esmのみ、上書き0件、MGEF 2件・SPEL 2件。
+- 主能力：Lesser Power、Self、Fire and Forget、Base Cost 0。効果Duration 60。
+- 制御MGEF：Script、No Recast/No Death Dispel有効、No Duration無効、VMADの3プロパティが解決すること。
+- 内部魔法：Magnitude 0、Area 27、Duration 2、Area Effect Ignores LOS有効。
+- 探知MGEF：Detect Life、Actor Value None、No Area/No Duration無効、FX Persist有効、Hit Shaderは `LifeDetectedEnemy [EFSH:000DC209]`。GetDistance PlayerRef <= 560と除外条件があること。
+
+今後、生成パッチがこれらの新規レコード自体を変更した場合は、その差分を調べます。生成パッチによる追加変更を今回の無競合検査に含めたという意味ではありません。

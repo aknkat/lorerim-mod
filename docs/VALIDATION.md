@@ -1,83 +1,50 @@
-# 検証記録
+# 検証記録：v0.1.1
 
-制作日：2026-10-15（日本時間）。対象：Skyrim SE 1.6.1170 / LoreRim v5.0.4.8 Default / Requiem / Cabbage ENB。
+対象：Skyrim SE 1.6.1170 / LoreRim v5.0.4.8 Default / Requiem / Cabbage ENB。制作機でゲームは起動できない。**v0.1.1の実機最終確認は未実施**。
 
-これは**試験版**です。制作機ではSkyrimを起動していません。ユーザーの実機では制御MGEFの適用を確認しましたが、探知が表示されない問題が報告されています。ファイル検査とゲーム内の動作確認を区別します。
+## ユーザー実機で確認されたこと
 
-## 合格したファイル検査
+- v0.1.0は通常能力の制御MGEFを適用できた。`player.hasmagiceffect` が1.00となったが、Papyrus実行の証明ではない。
+- v0.1.0と自己除外だけを取り除いたprobe1では探知が表示されなかった。
+- 標準のVoiceAuraWhisper1を同じ環境で試すと、赤く広範囲に表示された。
+- 読み取り専用xEditエクスポーターはユーザー側で実行され、3494ファイルを読み込んだレコード情報を受領した。現在の自作ESPのIndexはFE:CFD。
+- そのデータからArea/No Area/FX Persist/Actor Value、参照シェーダー、最終定義、VMADを比較した。詳しくは [RECORD_COMPARISON_0.1.1.md](RECORD_COMPARISON_0.1.1.md)。
 
-- MutagenでESPを書き出し、別の読み込み経路で再読み込みする。
-- 独立したPythonリーダーでTES4/GRUP/MGEF/SPEL/VMAD/CTDA、ローカル参照、英語・日本語Stringsを検査する。
-- CapricaのSkyrimモードで実際にPSCからPEXをコンパイルする。
-- PEXの形式、全オブジェクトと命令、分岐先、プロパティとESPのVMADの対応を検査する。
-- コンパイル済みガードと出力された条件表を、対象外の種族・NPC・死体・機械・距離境界のケースで検査する。
-- 独立したChampollionでPEXをデコンパイルする。
-- 再ビルドのバイト一致、ZIPのルート配置・CRC・SHA256を検査する。
+## v0.1.1の制作環境での検査
 
-`python3 -m unittest discover -s tests -v`：**11 tests / OK**。対象は次のとおりです。
+`python3 -m unittest discover -s tests -v`：**11 tests / OK**。ゲームの描画・ネイティブの判定を代替するテストではない。
 
-1. ESLフラグ・マスター・新規レコードのみであること。
-2. ヘッダーの件数・FormIDと、RACE/PERK/QUST等の変更がないこと。
-3. Lesser Power・Self・Fire and Forget・ゼロコスト・制御効果60秒。
-4. NoRecast/NoDeathDispel・クールダウン条件・カジート/吸血鬼カジートの条件ORグループ。
-5. Detect Life archetype・共通シェーダー・範囲・探知2秒。
-6. 出力CTDAの距離境界560 units、死体/アンデッド/機械/自身の除外条件表。
-7. 実際のPEXとESPのプロパティ・FormID対応。
-8. コンパイル済みPEXのガードをモックAPIで実行：正しいプレイヤー、吸血鬼カジート、別種族、NPC、異なるcaster、未設定プロパティ。
-9. 英語・日本語の全表示文字列への参照が解決すること。
-10. 切れたPEX・異なるゲーム形式を検査器が拒否すること。
-11. コンパイラの既知の長さフィールド補正が4バイトだけで済み、それ以外の破損を拒否すること。
+1. ESL・Localizedフラグ、Skyrim.esmのみへのマスター依存、すべて固有のFormID。
+2. 2 MGEF + 2 SPELの4件のみ。種族、Perk、NPC、既存魔法、シェーダーの上書き0件。
+3. Lesser Power、Self、Fire and Forget、コスト0、制御効果60秒。
+4. NoRecast/NoDeathDispel、プレイヤーと通常・吸血鬼Khajiitの条件、クールダウンの再適用を防ぐ条件。
+5. Area 27、Magnitude 0、Duration 2、No Area/No Duration無効、FX Persist有効、Actor Value None、共通シェーダーDC209、Area Effect Ignores LOS。
+6. 死体・アンデッド・機械・NoDetectLifeの条件表、560 units境界、自己適用を拒否する条件と敵味方判定がないこと。
+7. PEXのプロパティとVMADの参照対応、1件の固有スクリプト。
+8. コンパイル済みガードをモックAPIで実行し、使用者・種族・キャスターと未設定プロパティを検査。
+9. 英語・日本語のすべての表示文字列の参照。
+10. 切れたPEX、別ゲーム形式の拒否。
+11. PEXの正しい長さフィールド、既知のコンパイラ出力だけを補正し、旧版の誤った本文長や他の破損を拒否。
 
-Caprica v0.3.0：Skyrimモード、strict、全警告をエラー扱いにして**コンパイル成功**。出力はSkyrim PEX 3.2 / Game ID 1です。
+以下の検査も合格した。
 
-独立したChampollion v1.3.2：**1 file processed / デコンパイル成功**。オブジェクト長補正の前後で、デコンパイルしたPSCと命令の逆アセンブルがそれぞれバイト一致しました。処理はGame.GetPlayer、Actor.GetRaceでのガード、DetectionSpell.Castの1回呼び出しです。
+- MutagenでESPを生成し、別の読み込み経路で全レコードを再読み込み。
+- 独立したPythonリーダーでESPとPEXを全体解析。
+- Caprica v0.3.0のSkyrim/strictモードで実際にコンパイル。
+- **Mutagenの独立したPEXリーダー**でも全体を読み込み、オブジェクト長を照合。旧版の本文長だけのPEXは、想定どおりオブジェクト長不一致として拒否された。
+- Champollion v1.3.2で1ファイルのデコンパイルが成功。以前のPSC出力とバイト一致し、命令の意味が維持されていることを照合。配布PEX自体の差分も、旧版の長さマーカー末尾1バイト（EE→F2）のみだった。
+- 最終成果物の再現ビルド、ZIPの配置・CRC・全ファイルのSHA256。
+- 文書・マニフェストを固有フォルダーにまとめ、旧版の汎用パスを除去。
+- ユーザー提供FSMP ZIPとのファイルパス重複0件。
 
-初回の独立検査では、Capricaのオブジェクト長フィールドのバイト順不一致と、内部魔法の空の説明文に日本語の項目がなかった点を検出しました。前者は実長と一致する場合だけ長さマーカーを補正し、後者は両言語を明示して再生成しました。検査を弱めず、修正後に全11件が合格しています。
+範囲指定とPEX検査器の元の前提が誤っていた。過去の11テスト合格やChampollionの成功を、ゲーム内動作や完全な形式準拠の証明として扱わない。v0.1.1では実レコードとの比較と別実装の厳格なPEXリーダーを検査に加えた。
 
-MO2 ZIP：**17 files / Dataルート構造、ZIP CRC、全ファイルのSHA256が合格**。他MODのスクリプト、ビルド用APIスタブ、DLLは含みません。
+## 未確認の点
 
-条件表のテストは記録された判定内容の検査です。SkyrimがDetect Lifeの条件を評価する対象・タイミング、実際の距離、描画、残時間を証明するものではありません。
+- 修正版の赤い表示、約2秒での消失、屋内外・昼夜・壁越しの見え方。
+- 実効半径約8m、移動時の境界、各除外対象と自己発光、吸血鬼カジート。
+- 通常能力からのスクリプト呼び出し、連打・60秒制限、セーブ/ロード後の残時間。
+- 待機・睡眠・セル移動、外部MODによるDispel、将来の生成パッチやロードオーダー変更。
+- MODを無効化したセーブの状態。
 
-## 再現性
-
-同一ソースでの連続ビルドを検査し、ESP、補正/メタデータ固定後のPEX、Strings、MO2 ZIP、制作ソースZIPのバイト一致を確認済み。記録を含む最終ZIPにも同じ検査を実施した。
-
-## 2026-10-16：文書ファイルの梱包修正
-
-MO2用ZIPのルート `LICENSE` を `KhajiitKeenSenses-LICENSE.txt` へ変更した。ユーザー提供のFSMPアーカイブと初版の重複パスは、この文書1件のみだった。ESP、PEX、PSC、Stringsの実行用ファイルは変更せず、初版の各バイト列と照合した。修正後はFSMPとの重複パス0件、ZIPのCRC・全ファイルのSHA256、2回の再梱包の一致を検査した。ゲーム内動作の検証状態に変更はない。
-
-## ユーザー実機での探知不発とprobe1
-
-通常能力の使用後に `player.hasmagiceffect FECF5801` が `1.00` となり、制御MGEFは適用された。内部探知を `player.cast FECF5803 00000014 left` で直接試しても表示されず、条件の出力が `GetDead >> 0`、2件の `HasKeyword >> 0`、`GetIsRef >> 1.00` となった。
-
-探知MGEFの `GetIsReference PlayerRef == 0` はこの評価対象では成立しない。元の条件表テストはActor候補を渡したときの論理表だけを検査しており、実際の評価対象を検証できていなかった。ここが当初の設計の誤りである。
-
-probe1はこのCTDAだけを1件削除する診断用ZIP。独立リーダーで他のレコード・条件・FormIDが同一であること、PEX・PSC・Stringsの8ファイルのバイト一致、0件の既存レコード上書き、ZIPのCRC・SHA256・再梱包一致を確認した。probe1のゲーム内結果は未確認。通常能力のスクリプト実行と、探知対象の除外・距離判定の成立も引き続き未確認。詳細は [DETECTION_PROBE.md](DETECTION_PROBE.md)。
-
-## probe1再試験と標準能力の比較
-
-probe1の導入案内後も、ユーザーから探知が表示されないと報告された。続いて `player.cast 0008AFCC 00000014 left` で標準のVoiceAuraWhisper1を試すと、赤く、8mよりかなり遠い距離まで表示された。この環境で標準探知の描画は機能している。標準能力の比較試験なので、自作MODの2秒・8m・対象除外が動作したという結果ではない。青色の表示を前提に説明した点も実環境とは一致していなかった。
-
-追加の推測に基づく診断ESPを配る前に、動作したSPEL/MGEFとシェーダーの実データを一括で取得し、自作レコードとの差を調べる。読み取り専用のxEditスクリプトを `tools/xedit/LKS - Export detection records.pas` に用意した。レコードへの書き込みAPIを呼ばず、同梱スクリプトと公開APIとの照合を実施。SSEEdit本体での実行は制作環境では未実施。取得手順は [EXPORT_DETECTION_RECORDS.md](EXPORT_DETECTION_RECORDS.md)。
-
-## 引き続き実機では未確認
-
-- PEXの実行。ESPの制御MGEFの適用は上記のユーザー報告で確認できた。
-- Cabbage ENBでのLifeDetectedの表示、壁越しの見え方、2秒での消失。
-- 約8mの半径、移動中の対象、Native Detect Lifeの条件評価と距離判定の組合せ。
-- 再使用60秒、連打、保存/ロード後の残時間、待機・睡眠・メニュー・セル移動。
-- LoreRim/Requiemの最終勝者、生成パッチによる新規レコードの変更、独自Actorのキーワード。
-- MOD無効化後のセーブの状態。
-
-この機械にゲーム本体、Skyrim.esmの実内容、LoreRim/Requiemのプラグイン、ENBはありません。したがって、LoreRim/Requiemの既存生命探知レコードをそのまま複製したものではありません。代わりに標準のDetect Life archetypeと既存のLifeDetectedへの参照で新規MGEFを定義しました。危険な既存レコードの上書きや、他MODの効果の変更は行っていません。
-
-## 依存・競合の範囲
-
-- 直接のマスター依存：`Skyrim.esm` のみ。
-- SKSE関数呼び出し：なし。使用するAPIはバニラの `Game.GetPlayer`、`Actor.GetRace`、`Spell.Cast` と `OnEffectStart`。
-- 既存レコードのオーバーライド：0件。2 MGEF + 2 SPELの4件のみ。
-- 既存ナイトアイ・種族・Perk・NPC・クエスト・ActorValueの値は変更しない。
-- 生命探知の表示は既存LifeDetectedの最終定義に依存する。新規レコードだけでも、表示シェーダー・Actorキーワード・エンジンの仕様まで他MODから独立するわけではない。
-- クールダウンは有限時間の魔法効果として保存する設計。外部処理でこの効果を消した場合は制限も消える。常駐クエストやポーリングで再付与する構成ではない。
-
-具体的な実機確認は [IN_GAME_CHECKLIST.md](IN_GAME_CHECKLIST.md) を使ってください。
+既存レコードの直接競合を生む上書きは0件。共有シェーダーやActorキーワードの将来の変更、すべてのMO2内ファイルとの相互作用まで実機保証したものではない。
