@@ -22,3 +22,5 @@ Capricaのオブジェクト長フィールドの補正は、[PexWriter.endObjec
 ユーザー提供の `LKS-detection-records.txt`（3494 loaded files）をデータとして参照。標準FF探知MGEF、Aura Whisperの最終定義と関連シェーダー、自作4レコードを比較した。出力全文は公開・同梱せず、必要な値と根拠を [RECORD_COMPARISON_0.1.1.md](RECORD_COMPARISON_0.1.1.md) にまとめた。
 
 v0.1.3は固有QUSTに属するPapyrusスクリプトとバニラの単発更新登録を使う。No Recast単独に依存しない。コンパイル用Quest/Form宣言は上記の公式vanillaソースと照合した。検査用ホストでの保存復元はNativeタイマーを模擬するため、Skyrim本体のセーブ挙動は確認待ち。
+
+ユーザー提供の [LoreRim Safe Saving本文](https://v4.lorerim.com/home) も運用・検証手順の参照元とする。v4サイトの本文であり、v5現行ページと同じかは未照合。制作環境からのサイト接続はプロキシで403拒否されるため、直接本文を取得したとは主張しない。主な指示は、ロード前に終了・再起動すること、戦闘・重いスクリプト演出中・セル移動直後の保存、短い間隔での連続保存を避けること。
