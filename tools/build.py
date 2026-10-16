@@ -41,7 +41,7 @@ def archive(package, output):
 def source_archive(output):
     """Separate development-source ZIP; never mix compiler API stubs into Data."""
     paths = [ROOT / name for name in ("README.md", "LICENSE", ".gitignore")]
-    extensions = {".md", ".py", ".cs", ".csproj", ".json", ".psc", ".flg"}
+    extensions = {".md", ".py", ".cs", ".csproj", ".json", ".psc", ".flg", ".pas"}
     for directory in ("docs", "scripts/source", "tools", "tests"):
         for path in (ROOT / directory).rglob("*"):
             relative = path.relative_to(ROOT)

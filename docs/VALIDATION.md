@@ -54,6 +54,12 @@ MO2用ZIPのルート `LICENSE` を `KhajiitKeenSenses-LICENSE.txt` へ変更し
 
 probe1はこのCTDAだけを1件削除する診断用ZIP。独立リーダーで他のレコード・条件・FormIDが同一であること、PEX・PSC・Stringsの8ファイルのバイト一致、0件の既存レコード上書き、ZIPのCRC・SHA256・再梱包一致を確認した。probe1のゲーム内結果は未確認。通常能力のスクリプト実行と、探知対象の除外・距離判定の成立も引き続き未確認。詳細は [DETECTION_PROBE.md](DETECTION_PROBE.md)。
 
+## probe1再試験と標準能力の比較
+
+probe1の導入案内後も、ユーザーから探知が表示されないと報告された。続いて `player.cast 0008AFCC 00000014 left` で標準のVoiceAuraWhisper1を試すと、赤く、8mよりかなり遠い距離まで表示された。この環境で標準探知の描画は機能している。標準能力の比較試験なので、自作MODの2秒・8m・対象除外が動作したという結果ではない。青色の表示を前提に説明した点も実環境とは一致していなかった。
+
+追加の推測に基づく診断ESPを配る前に、動作したSPEL/MGEFとシェーダーの実データを一括で取得し、自作レコードとの差を調べる。読み取り専用のxEditスクリプトを `tools/xedit/LKS - Export detection records.pas` に用意した。レコードへの書き込みAPIを呼ばず、同梱スクリプトと公開APIとの照合を実施。SSEEdit本体での実行は制作環境では未実施。取得手順は [EXPORT_DETECTION_RECORDS.md](EXPORT_DETECTION_RECORDS.md)。
+
 ## 引き続き実機では未確認
 
 - PEXの実行。ESPの制御MGEFの適用は上記のユーザー報告で確認できた。
