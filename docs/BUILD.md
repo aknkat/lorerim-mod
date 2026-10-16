@@ -49,11 +49,11 @@ python3 tools/build.py \
 - Caprica v0.3.0のSkyrim出力には、オブジェクト長の4バイトだけがlittle-endianになる不具合があります。各ファイルの実際の本文長と一致することを確かめ、長さフィールド自身4バイトを含む値をSkyrimのbig-endianへ補正します。補正候補の全オブジェクト・命令・分岐を厳格に読み取れた場合だけ出力を採用します。
 - 補正後のPEXをMutagenの独立したSkyrim PEXリーダーでも全体読み込みし、本文長だけを記録した旧形式を拒否します。
 - PEXヘッダーのコンパイル時刻・ユーザー名・マシン名・ソースパスを固定します。上記の構造フィールドと非実行メタデータ以外、バイトコードは変更しません。
-- 独立したPythonリーダーとユニットテストで出力ファイルを検査します。コンパイル済みのイベントのプレイヤー/種族ガードを、モックしたバニラAPIで実行します。自己参照条件の再混入を拒否し、公開済みv0.1.1由来のハッシュで探知MGEFと内部SPELの不変性を検査します。実際のPEXを検査用VMで実行し、共有フラグ、再入力時の非更新、Native呼び出し中の再入、模擬Nativeタイマーの保存・復元を検査します。これはゲームエンジンの代替テストではありません。
+- 独立したPythonリーダーとユニットテストで出力ファイルを検査します。コンパイル済みPEXを模擬APIで実行し、入力条件、共有期限、再入力時の非更新、Native呼び出し中の再入、更新登録を失うロード、旧版のTrueフラグ・遅延イベント、時計の巻き戻りを検査します。演算は32bit Floatへ丸めます。公開済みv0.1.1の探知とv0.1.3の5レコード・入力PEXもハッシュで照合します。時計の進行と復元は模擬であり、ゲームエンジンの代替検証ではありません。
 - 文書・マニフェスト・SHA256を `KhajiitKeenSenses/` 以下へまとめます。履歴用のprobe1/取得ツールの説明はMO2用ZIPに含めません。
-- `package/` の生成内容だけを更新し、固定順序・固定ZIP時刻で `dist/KhajiitKeenSenses-0.1.3-MO2.zip` を作成します。
+- `package/` の生成内容だけを更新し、固定順序・固定ZIP時刻で `dist/KhajiitKeenSenses-0.1.4-MO2.zip` を作成します。
 - ZIPのCRC、全ファイルのSHA256、MO2のDataルート構造、SDKスクリプトの混入がないことを検査します。
-- 制作ソースだけの別ZIP `dist/KhajiitKeenSenses-0.1.3-source.zip` も作成し、CRCとSHA256を検査します。ビルド用API宣言はこちらにだけ含みます。
+- 制作ソースだけの別ZIP `dist/KhajiitKeenSenses-0.1.4-source.zip` も作成し、CRCとSHA256を検査します。ビルド用API宣言はこちらにだけ含みます。
 
 コード・レコードを変更した場合はESPとPEXを再ビルドします。ゲームで使うのは `dist/` のZIPです。生成された `package/` を手作業で変更しても、次回ビルドで保持されません。
 
@@ -61,7 +61,7 @@ python3 tools/build.py \
 
 ```bash
 python3 -m unittest discover -s tests -v
-python3 tools/verify_archive.py dist/KhajiitKeenSenses-0.1.3-MO2.zip
+python3 tools/verify_archive.py dist/KhajiitKeenSenses-0.1.4-MO2.zip
 ```
 
 PEXは独立した [Champollion v1.3.2](https://github.com/Orvid/Champollion/releases/tag/v1.3.2) でもデコンパイルし、元のイベントの意味と照合します。正式なゲーム検査はMO2経由のSSEEditとゲーム内で行います。

@@ -7,7 +7,7 @@ ESPのレコード構造と定数は、以下の公開された実装に照合�
 - [Mutagen.Bethesda.FormKeys.SkyrimSE](https://github.com/Mutagen-Modding/Mutagen.Bethesda.FormKeys/tree/650e147f854086b47b91ea80a881751466135256/Mutagen.Bethesda.FormKeys.SkyrimSE/Skyrim)：参照するKhajiitRace、KhajiitRaceVampire、ActorTypeUndead、ActorTypeDwarven、NoDetectLife、LifeDetectedEnemy、VoiceのFormID。PlayerRefは標準の参照FormID `00000014` を使用する。
 - [Caprica v0.3.0](https://github.com/Orvid/Caprica/releases/tag/v0.3.0)：PapyrusをSkyrimのPEX 3.2 / Game ID 1へコンパイル。
 - [Champollion v1.3.2](https://github.com/Orvid/Champollion/releases/tag/v1.3.2)：生成PEXの独立した読み込みとデコンパイル。
-- [SKSE64公開リポジトリのvanillaスクリプト宣言](https://github.com/ianpatt/skse64/tree/master/scripts/vanilla)：Game.GetPlayer、Actor.GetRace、Spell.Cast、ActiveMagicEffect.OnEffectStart、Quest.Start/IsRunning、Form.RegisterForSingleUpdate/OnUpdateの**バニラAPIのシグネチャ**を確認するために使用。SKSEの拡張関数は使わない。
+- [SKSE64公開リポジトリのvanillaスクリプト宣言](https://github.com/ianpatt/skse64/tree/master/scripts/vanilla)：Game.GetPlayer/GetRealHoursPassed、Actor.GetRace、Spell.Cast、ActiveMagicEffect.OnEffectStart、Quest.Start/IsRunning、Form.RegisterForSingleUpdate/OnUpdateの**バニラAPIのシグネチャ**を確認するために使用。SKSEの拡張関数は使わない。v0.1.4は更新登録を呼び出さない。
 
 コンパイル用の最小API宣言は独自に記載したもので、ゲーム実行用の代替スクリプトではありません。
 
@@ -22,5 +22,7 @@ Capricaのオブジェクト長フィールドの補正は、[PexWriter.endObjec
 ユーザー提供の `LKS-detection-records.txt`（3494 loaded files）をデータとして参照。標準FF探知MGEF、Aura Whisperの最終定義と関連シェーダー、自作4レコードを比較した。出力全文は公開・同梱せず、必要な値と根拠を [RECORD_COMPARISON_0.1.1.md](RECORD_COMPARISON_0.1.1.md) にまとめた。
 
 v0.1.3は固有QUSTに属するPapyrusスクリプトとバニラの単発更新登録を使う。No Recast単独に依存しない。コンパイル用Quest/Form宣言は上記の公式vanillaソースと照合した。検査用ホストでの保存復元はNativeタイマーを模擬するため、Skyrim本体のセーブ挙動は確認待ち。
+
+v0.1.4はGame.GetRealHoursPassedと保存期限を入力時に比較し、更新登録への依存を廃止する。このAPIは [vanilla Game.psc](https://github.com/ianpatt/skse64/blob/master/scripts/vanilla/Game.psc) に存在するFloat戻り値・引数なしのGlobal Native関数。公開宣言はAPI存在と型を確認する資料で、Skyrim本体の時計の保存・進行の検証ではない。期限は1/60時間先として計算するが、単位・メニュー中の進み方・保存復元は実機照合が必要。
 
 ユーザー提供の [LoreRim Safe Saving本文](https://v4.lorerim.com/home) も運用・検証手順の参照元とする。v4サイトの本文であり、v5現行ページと同じかは未照合。制作環境からのサイト接続はプロキシで403拒否されるため、直接本文を取得したとは主張しない。主な指示は、ロード前に終了・再起動すること、戦闘・重いスクリプト演出中・セル移動直後の保存、短い間隔での連続保存を避けること。

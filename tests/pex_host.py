@@ -1,10 +1,15 @@
 """Execute emitted Papyrus instructions against a deliberately small mock host.
 
-The saved Boolean is actual compiled-script state. Native update registrations
-and their save/load are mocked; this does not validate Skyrim's event delivery.
+The saved deadline is actual compiled-script state. The native play-time clock
+and its save/load are mocked; this does not validate Skyrim's clock semantics.
 No source-language translation or reimplementation of TryActivate is used.
 """
 import json
+import struct
+
+
+def float32(value):
+    return struct.unpack('<f', struct.pack('<f', value))[0]
 
 
 class ScriptInstance:
@@ -33,6 +38,8 @@ class ScriptInstance:
             if value[0] != 1:
                 raise ValueError("Nonvariable destination")
             key = value[1].lower()
+            if isinstance(data, float):
+                data = float32(data)
             if key in self.fields:
                 self.fields[key] = data
             else:
@@ -47,12 +54,22 @@ class ScriptInstance:
             op, a, extra = inst["op"], inst["args"], inst["variadic"]
             if op == 0:
                 pass
+            elif op in (2, 4, 6, 8):
+                left, right = get(a[1]), get(a[2])
+                operation = {2: lambda: left + right, 4: lambda: left - right,
+                             6: lambda: left * right, 8: lambda: left / right}[op]
+                put(a[0], operation())
             elif op == 10:
                 put(a[0], not get(a[1]))
             elif op in (13, 14):
                 put(a[0], get(a[1]))
             elif op == 15:
                 put(a[0], get(a[1]) == get(a[2]))
+            elif op in (16, 17, 18, 19):
+                left, right = get(a[1]), get(a[2])
+                operation = {16: lambda: left < right, 17: lambda: left <= right,
+                             18: lambda: left > right, 19: lambda: left >= right}[op]
+                put(a[0], operation())
             elif op == 20:
                 pc += get(a[0])
                 continue
@@ -64,9 +81,17 @@ class ScriptInstance:
                 result = host.method(get(a[1]), a[0][1], [get(x) for x in extra])
                 put(a[2], result)
             elif op == 25:
-                if [x[1].lower() for x in a[:2]] != ["game", "getplayer"] or extra:
+                if a[0][1].lower() != "game" or extra:
                     raise ValueError("Unexpected global API")
-                put(a[2], "player")
+                if a[1][1].lower() == "getplayer":
+                    put(a[2], "player")
+                elif a[1][1].lower() == "getrealhourspassed":
+                    hook, host.clock_hook = host.clock_hook, None
+                    if hook:
+                        hook(host)
+                    put(a[2], host.play_hours)
+                else:
+                    raise ValueError("Unexpected Game API")
             elif op == 26:
                 return get(a[0])
             elif op == 28:
@@ -91,9 +116,12 @@ class Host:
         self.running, self.start_ok = False, True
         self.race = 0x13745
         self.now, self.due = 0.0, None
+        self.play_hours = 100.0
         self.registrations, self.starts, self.casts = [], 0, []
         self.getrace_hook = None
         self.register_hook = None
+        self.clock_hook = None
+        self.cast_hook = None
 
     def activate(self, target="player", caster="player"):
         # A fresh trigger object for every press: state must never live here.
@@ -120,6 +148,9 @@ class Host:
             return self.race
         elif receiver == self.PULSE and method == "cast":
             self.casts.append((self.now, receiver, *args))
+            hook, self.cast_hook = self.cast_hook, None
+            if hook:
+                hook(self)
             return None
         elif receiver is self.manager and method == "registerforsingleupdate":
             self.due = self.now + args[0]
@@ -136,17 +167,22 @@ class Host:
             self.now, self.due = self.due, None
             self.manager.invoke("OnUpdate", [], self)
         self.now = end
+        self.play_hours += seconds / 3600.0
 
     def save(self):
         return json.dumps({"fields": self.manager.fields, "running": self.running,
                            "race": self.race,
+                           "play_hours": self.play_hours,
                            "remaining_update": None if self.due is None else self.due - self.now})
 
     def load(self, snapshot):
         saved = json.loads(snapshot)
-        self.manager.fields = saved["fields"]
+        # A newly added PEX variable has its initial value in an old save.
+        self.manager.fields.update(saved["fields"])
         self.running, self.race = saved["running"], saved["race"]
-        # Deliberately change the host clock origin on reload. The script must
-        # not depend on an old GetCurrentRealTime timestamp.
+        # Deliberately reset the session clock but restore the character's
+        # native play-time counter. This is an assumption to test in-game.
         self.now = 0.0
-        self.due = saved["remaining_update"]
+        self.play_hours = saved["play_hours"]
+        # Simulate update registrations being absent after load.
+        self.due = None

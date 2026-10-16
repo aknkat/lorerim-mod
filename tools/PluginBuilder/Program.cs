@@ -25,7 +25,7 @@ var key = ModKey.FromNameAndExtension("KhajiitKeenSenses.esp");
 var mod = new SkyrimMod(key, SkyrimRelease.SkyrimSE);
 mod.ModHeader.Flags = SkyrimModHeader.HeaderFlag.Small | SkyrimModHeader.HeaderFlag.Localized;
 mod.ModHeader.Author = "aknkat";
-mod.ModHeader.Description = "Keen Senses 0.1.3 - scripted singleton cooldown controller; game validation pending.";
+mod.ModHeader.Description = "Keen Senses 0.1.4 - activation-time deadline check without update timers; game validation pending.";
 mod.ModHeader.Stats.Version = 1.7f;
 
 var power = new Spell(new FormKey(key, 0x800), SkyrimRelease.SkyrimSE);
@@ -144,7 +144,7 @@ trigger.Conditions.Add(Compare(IsRace(0x88845), 1));
 // Do not condition this effect on its own absence, including on the SPEL
 // entry: active-effect conditions can be reevaluated after application.
 // This repeatable trigger never owns cooldown state. Its controller checks
-// the saved lock and schedules a timer only on an accepted activation.
+// the saved deadline. No native update registration is required.
 power.Effects.Add(trigger);
 
 SetSpell(detectionSpell, "LKS_DetectionPulse", "LKS Internal Detection Pulse", "LKS Internal Detection Pulse", SpellType.Spell);
@@ -197,7 +197,7 @@ foreach (var link in records.SelectMany(r => r.EnumerateFormLinks()))
     if (link.FormKey.ModKey == key && !records.Any(r => r.FormKey == link.FormKey))
         throw new InvalidDataException($"Broken local link: {link.FormKey}");
 }
-var report = new { plugin = key.FileName.String, version = "0.1.3",
+var report = new { plugin = key.FileName.String, version = "0.1.4",
     status = "structural_validation_only_game_validation_pending",
     master = "Skyrim.esm", esl = true, overrides = 0,
     records = records.Select(r => new { id = $"{r.FormKey.ID:X6}", type = r.GetType().Name,
@@ -212,7 +212,8 @@ var report = new { plugin = key.FileName.String, version = "0.1.3",
     reference_data = "User-provided LKS-detection-records.txt; 3494 loaded files",
     detection_seconds = 2, cooldown_seconds = 60,
     activation_seconds = 1,
-    cooldown_control = "Quest-owned saved Boolean lock with one RegisterForSingleUpdate(60); retries do not schedule",
+    cooldown_control = "Quest-owned deadline using vanilla Game.GetRealHoursPassed; checked on activation; no update registration",
+    legacy_migration = "v0.1.3 Boolean is ignored; first use after upgrade starts a fresh cooldown",
     languages = new[] { "English", "Japanese" },
     skse_required = false, requiem_master_required = false };
 var metadata = Path.Combine(output, "KhajiitKeenSenses");

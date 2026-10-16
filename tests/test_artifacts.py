@@ -1,7 +1,7 @@
 """Tests of emitted files, condition truth tables and compiled script guards.
 
 Mocked PEX execution tests script branches, not the Skyrim engine's rendering,
-native timer or condition-evaluation context. Those need the in-game checklist.
+native clock or condition-evaluation context. Those need the in-game checklist.
 """
 import struct
 import sys
@@ -115,6 +115,16 @@ class ArtifactTests(unittest.TestCase):
             self.assertEqual(hashlib.sha256(raw).hexdigest(), digest,
                              f"Changed already-working v0.1.1 record {local_id}")
 
+    def test_preserves_all_v013_records_and_activation_pex(self):
+        baseline = json.loads((ROOT / 'tests/fixtures/v013-record-signatures.json').read_text())
+        for local_id, digest in baseline['record_fields_sha256'].items():
+            record = self.forms[int(local_id, 16)]
+            raw = b''.join(name.encode('ascii') + struct.pack('<H', len(data)) + data
+                           for name, data in record['fields'])
+            self.assertEqual(hashlib.sha256(raw).hexdigest(), digest)
+        self.assertEqual(hashlib.sha256((self.package / 'Scripts/LKS_KeenSensesEffect.pex')
+                                       .read_bytes()).hexdigest(), baseline['activation_pex_sha256'])
+
     def test_detection_native_shader_range_and_duration(self):
         data = field(self.forms[0x802], "DATA")
         self.assertEqual(len(data), 152)
@@ -199,7 +209,7 @@ class ArtifactTests(unittest.TestCase):
                 host.race = race
                 host.activate(target, caster)
                 self.assertEqual(len(host.casts), int(expected))
-                self.assertEqual(len(host.registrations), int(expected))
+                self.assertEqual(host.registrations, [])
 
     def test_missing_bindings_and_failed_start_do_not_lock_or_cast(self):
         for kind in ("controller", "pulse", "start"):
@@ -220,43 +230,47 @@ class ArtifactTests(unittest.TestCase):
     def test_compiled_cooldown_zero_thirty_sixty_five(self):
         host = self.host()
         host.activate()
-        self.assertEqual(host.registrations, [(0.0, 60.0, 60.0)])
+        self.assertEqual(host.registrations, [])
+        deadline = host.manager.fields['readyathours']
         self.assertEqual(host.casts, [(0.0, 0x01000803, "player", "player")])
         host.advance(30)
         host.activate()
         self.assertEqual(len(host.casts), 1)
-        self.assertEqual(host.due, 60.0)
-        self.assertEqual(len(host.registrations), 1)
+        self.assertEqual(host.manager.fields['readyathours'], deadline)
+        self.assertEqual(host.registrations, [])
         host.advance(35)
         host.activate()
         self.assertEqual(len(host.casts), 2)
-        self.assertEqual(host.registrations[-1], (65.0, 60.0, 125.0))
+        self.assertAlmostEqual((host.manager.fields['readyathours'] - host.play_hours) * 3600,
+                               60.0, delta=0.1)
         self.assertEqual(host.starts, 1)
 
     def test_rapid_fresh_effect_instances_cannot_extend_or_bypass_lock(self):
         host = self.host()
         host.activate()
+        deadline = host.manager.fields['readyathours']
         for _ in range(100):
             host.activate()
-        host.advance(59.99)
+        host.advance(59.9)
         for _ in range(100):
             host.activate()
         self.assertEqual(len(host.casts), 1)
-        self.assertEqual(host.registrations, [(0.0, 60.0, 60.0)])
-        host.advance(0.01)
+        self.assertEqual(host.registrations, [])
+        self.assertEqual(host.manager.fields['readyathours'], deadline)
+        host.advance(0.2)
         host.activate()
         self.assertEqual(len(host.casts), 2)
 
     def test_reentry_during_native_calls_cannot_cast_twice(self):
-        for phase in ("getrace_hook", "register_hook"):
+        for phase in ("getrace_hook", "clock_hook", "cast_hook"):
             with self.subTest(phase=phase):
                 host = self.host()
                 setattr(host, phase, lambda game: game.activate())
                 host.activate()
                 self.assertEqual(len(host.casts), 1)
-                self.assertEqual(host.registrations, [(0.0, 60.0, 60.0)])
+                self.assertEqual(host.registrations, [])
 
-    def test_saved_lock_and_mock_native_timer_survive_clock_origin_change(self):
+    def test_saved_deadline_survives_reload_without_any_update_registration(self):
         host = self.host()
         host.activate()
         host.advance(15)
@@ -268,11 +282,12 @@ class ArtifactTests(unittest.TestCase):
         loaded.activate()
         self.assertEqual(loaded.casts, [])
         self.assertEqual(loaded.registrations, [])
-        self.assertEqual(loaded.due, 45.0)
-        loaded.advance(1)
+        self.assertIsNone(loaded.due)
+        loaded.advance(1.1)
         loaded.activate()
-        self.assertEqual(loaded.casts, [(45.0, 0x01000803, "player", "player")])
-        self.assertEqual(loaded.registrations, [(45.0, 60.0, 105.0)])
+        self.assertEqual(len(loaded.casts), 1)
+        self.assertAlmostEqual(loaded.casts[0][0], 45.1)
+        self.assertEqual(loaded.registrations, [])
 
     def test_saved_ready_state_does_not_replay_or_schedule(self):
         host = self.host()
@@ -285,6 +300,71 @@ class ArtifactTests(unittest.TestCase):
         self.assertIsNone(loaded.due)
         loaded.activate()
         self.assertEqual(len(loaded.casts), 1)
+
+    def test_pending_legacy_update_cannot_unlock_a_new_deadline(self):
+        host = self.host()
+        host.activate()
+        deadline = host.manager.fields['readyathours']
+        host.manager.fields['coolingdown'] = True
+        host.manager.invoke('OnUpdate', [], host)
+        self.assertEqual(host.manager.fields['readyathours'], deadline)
+        host.activate()
+        self.assertEqual(len(host.casts), 1)
+
+    def test_old_save_with_stuck_boolean_migrates_without_equipment_changes(self):
+        host = self.host()
+        host.activate()
+        saved = json.loads(host.save())
+        del saved['fields']['readyathours']
+        saved['fields']['coolingdown'] = True
+        saved['remaining_update'] = None
+        loaded = self.host()
+        loaded.load(json.dumps(saved))
+        loaded.activate()
+        self.assertEqual(len(loaded.casts), 1)
+        self.assertFalse(loaded.manager.fields['coolingdown'])
+        loaded.activate()
+        self.assertEqual(len(loaded.casts), 1)
+        self.assertEqual(loaded.registrations, [])
+
+    def test_backward_native_clock_rebases_once_then_recovers(self):
+        host = self.host()
+        host.activate()
+        host.play_hours = 5.0
+        host.activate()
+        deadline = host.manager.fields['readyathours']
+        self.assertAlmostEqual((deadline - 5.0) * 3600, 60.0, delta=0.1)
+        for _ in range(100):
+            host.activate()
+        self.assertEqual(host.manager.fields['readyathours'], deadline)
+        self.assertEqual(len(host.casts), 1)
+        host.advance(60.1)
+        host.activate()
+        self.assertEqual(len(host.casts), 2)
+
+    def test_deadline_precision_at_long_play_times(self):
+        for hours in (0.0, 100.0, 1000.0, 10000.0):
+            with self.subTest(hours=hours):
+                host = self.host()
+                host.play_hours = hours
+                host.activate()
+                host.advance(58)
+                host.activate()
+                self.assertEqual(len(host.casts), 1)
+                host.advance(4)
+                host.activate()
+                self.assertEqual(len(host.casts), 2)
+
+    def test_controller_has_no_update_registration_or_equipment_apis(self):
+        calls = []
+        for fn in self.manager_pex['objects'][0]['states'][''].values():
+            for inst in fn['code']:
+                if inst['op'] in (23, 25):
+                    calls.append(inst['args'][0][1].lower() if inst['op'] == 23
+                                 else inst['args'][1][1].lower())
+        self.assertIn('getrealhourspassed', calls)
+        self.assertFalse(set(calls) & {'registerforsingleupdate', 'registerforupdate',
+                                     'wait', 'equipspell', 'unequipspell'})
 
     def test_localized_strings_complete(self):
         for language, name in [("English", "Keen Senses"), ("Japanese", "鋭敏な感覚")]:
