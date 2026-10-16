@@ -6,6 +6,8 @@ native timer or condition-evaluation context. Those need the in-game checklist.
 import struct
 import sys
 import unittest
+import hashlib
+import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -145,15 +147,31 @@ class ArtifactTests(unittest.TestCase):
         gate = conditions(self.forms[0x800])
         self.assertEqual([(c["function"], c["p1"], c["value"], c["or"]) for c in gate],
                          [(136, 0x14, 1, False), (69, 0x13745, 1, True),
-                          (69, 0x88845, 1, False), (214, 0x01000801, 0, False)])
-        for is_player, race, cooldown, expected in [
-            (True, 0x13745, False, True), (True, 0x88845, False, True),
-            (False, 0x13745, False, False), (True, 0x13746, False, False),
-            (True, 0x13745, True, False), (True, 0x88845, True, False)]:
-            with self.subTest(player=is_player, race=race, cooldown=cooldown):
+                          (69, 0x88845, 1, False)])
+        # Both SPEL and MGEF conditions may enter active-effect evaluation.
+        # Never reject an active timer because that same timer exists.
+        for form in (0x800, 0x801):
+            self.assertFalse(any(c["function"] == 214 and c["p1"] == 0x01000801
+                                 for c in conditions(self.forms[form])),
+                             "Self-referential cooldown condition")
+        for is_player, race, expected in [
+            (True, 0x13745, True), (True, 0x88845, True),
+            (False, 0x13745, False), (True, 0x13746, False)]:
+            with self.subTest(player=is_player, race=race):
                 values = {(136, 0x14): is_player, (69, 0x13745): race == 0x13745,
-                          (69, 0x88845): race == 0x88845, (214, 0x01000801): cooldown}
+                          (69, 0x88845): race == 0x88845}
                 self.assertEqual(passes(gate, values), expected)
+
+    def test_preserves_user_confirmed_detection_and_compiled_script(self):
+        baseline = json.loads((ROOT / "tests/fixtures/v011-detection-signatures.json").read_text())
+        for local_id, digest in baseline["record_fields_sha256"].items():
+            record = self.forms[int(local_id, 16)]
+            raw = b"".join(name.encode("ascii") + struct.pack("<H", len(data)) + data
+                           for name, data in record["fields"])
+            self.assertEqual(hashlib.sha256(raw).hexdigest(), digest,
+                             f"Changed already-working v0.1.1 record {local_id}")
+        self.assertEqual(hashlib.sha256((self.package / "Scripts/LKS_KeenSensesEffect.pex").read_bytes()).hexdigest(),
+                         baseline["pex_sha256"], "Changed detection script bytecode")
 
     def test_detection_native_shader_range_and_duration(self):
         data = field(self.forms[0x802], "DATA")

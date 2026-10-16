@@ -110,11 +110,11 @@ def main():
     shutil.copytree(ROOT / "docs", metadata / "docs", ignore=shutil.ignore_patterns(
         "DETECTION_PROBE.md", "EXPORT_DETECTION_RECORDS.md"))
     subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-v"], cwd=ROOT, check=True)
-    archive(PACKAGE, ROOT / "dist" / "KhajiitKeenSenses-0.1.1-MO2.zip",
+    archive(PACKAGE, ROOT / "dist" / "KhajiitKeenSenses-0.1.2-MO2.zip",
             checksum_path="KhajiitKeenSenses/SHA256SUMS.txt")
     subprocess.run([sys.executable, str(ROOT / "tools" / "verify_archive.py"),
-                    str(ROOT / "dist" / "KhajiitKeenSenses-0.1.1-MO2.zip")], cwd=ROOT, check=True)
-    source_archive(ROOT / "dist" / "KhajiitKeenSenses-0.1.1-source.zip")
+                    str(ROOT / "dist" / "KhajiitKeenSenses-0.1.2-MO2.zip")], cwd=ROOT, check=True)
+    source_archive(ROOT / "dist" / "KhajiitKeenSenses-0.1.2-source.zip")
 
 
 if __name__ == "__main__":

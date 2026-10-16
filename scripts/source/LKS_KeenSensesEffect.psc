@@ -1,6 +1,7 @@
 Scriptname LKS_KeenSensesEffect extends ActiveMagicEffect
 ; This effect itself is the 60-second, engine-persisted cooldown.
-; NoRecast and the spell-entry conditions prevent refresh/duplicate starts.
+; NoRecast prevents duplicate applications. Spell-entry conditions only check
+; the player and race; never condition this effect on its own absence.
 ; The separate native Detect Life spell lasts only two seconds.
 
 Spell Property DetectionSpell Auto

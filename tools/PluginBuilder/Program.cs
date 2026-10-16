@@ -25,7 +25,7 @@ var key = ModKey.FromNameAndExtension("KhajiitKeenSenses.esp");
 var mod = new SkyrimMod(key, SkyrimRelease.SkyrimSE);
 mod.ModHeader.Flags = SkyrimModHeader.HeaderFlag.Small | SkyrimModHeader.HeaderFlag.Localized;
 mod.ModHeader.Author = "aknkat";
-mod.ModHeader.Description = "Keen Senses 0.1.1 - area-based detection; final game validation pending.";
+mod.ModHeader.Description = "Keen Senses 0.1.2 - remove self-referential cooldown gate; game validation pending.";
 mod.ModHeader.Stats.Version = 1.7f;
 
 var power = new Spell(new FormKey(key, 0x800), SkyrimRelease.SkyrimSE);
@@ -123,11 +123,9 @@ trigger.BaseEffect.SetTo(control.FormKey);
 trigger.Conditions.Add(Compare(IsPlayer(), 1));
 trigger.Conditions.Add(Compare(IsRace(0x13745), 1, or: true));
 trigger.Conditions.Add(Compare(IsRace(0x88845), 1));
-// This condition is on the SPEL effect entry, not on the active MGEF.
-// It prevents recasting from refreshing the cooldown; NoRecast backs it up.
-var hasCooldown = new HasMagicEffectConditionData();
-hasCooldown.MagicEffect.Link.SetTo(control.FormKey);
-trigger.Conditions.Add(Compare(hasCooldown, 0));
+// Do not condition this effect on its own absence, including on the SPEL
+// entry: active-effect conditions can be reevaluated after application.
+// The finite 60-second effect and NoRecast handle duplicate applications.
 power.Effects.Add(trigger);
 
 SetSpell(detectionSpell, "LKS_DetectionPulse", "LKS Internal Detection Pulse", "LKS Internal Detection Pulse", SpellType.Spell);
@@ -180,7 +178,7 @@ foreach (var link in records.SelectMany(r => r.EnumerateFormLinks()))
     if (link.FormKey.ModKey == key && !records.Any(r => r.FormKey == link.FormKey))
         throw new InvalidDataException($"Broken local link: {link.FormKey}");
 }
-var report = new { plugin = key.FileName.String, version = "0.1.1",
+var report = new { plugin = key.FileName.String, version = "0.1.2",
     status = "structural_validation_only_game_validation_pending",
     master = "Skyrim.esm", esl = true, overrides = 0,
     records = records.Select(r => new { id = $"{r.FormKey.ID:X6}", type = r.GetType().Name,
@@ -194,6 +192,7 @@ var report = new { plugin = key.FileName.String, version = "0.1.1",
     native_detection_area_feet = 27, detection_magnitude = 0, distance_filter_units = 560,
     reference_data = "User-provided LKS-detection-records.txt; 3494 loaded files",
     detection_seconds = 2, cooldown_seconds = 60,
+    cooldown_control = "Finite effect with NoRecast; no self-referential HasMagicEffect gate",
     languages = new[] { "English", "Japanese" },
     skse_required = false, requiem_master_required = false };
 var metadata = Path.Combine(output, "KhajiitKeenSenses");
