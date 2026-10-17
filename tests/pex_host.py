@@ -26,6 +26,10 @@ class ScriptInstance:
         local = {key.lower(): None for key, _ in function["locals"]}
         local.update({key.lower(): arg for (key, _), arg in zip(function["parameters"], args)})
         local["self"] = self
+        variable_types = {key.lower(): info['type'].lower()
+                          for key, info in self.obj['variables'].items()}
+        variable_types.update({key.lower(): kind.lower()
+                               for key, kind in function['locals'] + function['parameters']})
 
         def get(value):
             kind, raw = value
@@ -61,8 +65,20 @@ class ScriptInstance:
                 put(a[0], operation())
             elif op == 10:
                 put(a[0], not get(a[1]))
-            elif op in (13, 14):
+            elif op == 13:
                 put(a[0], get(a[1]))
+            elif op == 14:
+                value = get(a[1])
+                if variable_types.get(a[0][1].lower()) == 'string':
+                    if value is None:
+                        value = 'None'
+                    elif isinstance(value, bool):
+                        value = 'True' if value else 'False'
+                    elif isinstance(value, float):
+                        value = f'{value:.6f}'
+                    else:
+                        value = str(value)
+                put(a[0], value)
             elif op == 15:
                 put(a[0], get(a[1]) == get(a[2]))
             elif op in (16, 17, 18, 19):
@@ -81,6 +97,11 @@ class ScriptInstance:
                 result = host.method(get(a[1]), a[0][1], [get(x) for x in extra])
                 put(a[2], result)
             elif op == 25:
+                if a[0][1].lower() == 'debug' and a[1][1].lower() == 'messagebox' and len(extra) == 1:
+                    host.messages.append(get(extra[0]))
+                    put(a[2], 0)
+                    pc += 1
+                    continue
                 if a[0][1].lower() != "game" or extra:
                     raise ValueError("Unexpected global API")
                 if a[1][1].lower() == "getplayer":
@@ -94,6 +115,8 @@ class ScriptInstance:
                     raise ValueError("Unexpected Game API")
             elif op == 26:
                 return get(a[0])
+            elif op == 27:
+                put(a[0], get(a[1]) + get(a[2]))
             elif op == 28:
                 receiver = get(a[1])
                 prop = next(info for key, info in receiver.obj["properties"].items()
@@ -118,6 +141,7 @@ class Host:
         self.now, self.due = 0.0, None
         self.play_hours = 100.0
         self.registrations, self.starts, self.casts = [], 0, []
+        self.messages = []
         self.getrace_hook = None
         self.register_hook = None
         self.clock_hook = None
@@ -152,6 +176,10 @@ class Host:
             if hook:
                 hook(self)
             return None
+        elif receiver is self.manager and method == 'isrunning' and not args:
+            return self.running
+        elif receiver is self.manager and method == 'tryactivate':
+            return self.manager.invoke(name, args, self)
         elif receiver is self.manager and method == "registerforsingleupdate":
             self.due = self.now + args[0]
             self.registrations.append((self.now, args[0], self.due))
