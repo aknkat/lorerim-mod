@@ -78,7 +78,7 @@ class ConcentrationTests(unittest.TestCase):
         records, _ = read_plugin(self.plugin)
         shader = next(r for r in records if r["type"] == "EFSH")
         data = field(shader, "DATA")
-        self.assertEqual([tuple(data[o:o+3]) for o in [188, 192, 196]], [(242, 198, 184)] * 3)
+        self.assertEqual([tuple(data[o:o+3]) for o in [188, 192, 196]], [(224, 200, 184)] * 3)
         self.assertEqual(struct.unpack_from("<I", data, 384)[0], 1)
         self.assertEqual(field(shader, "NAM9"), b"\0")
         # Real native behavior requirements independent of the writer:

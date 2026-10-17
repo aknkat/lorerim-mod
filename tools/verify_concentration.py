@@ -83,7 +83,7 @@ def verify_plugin(path):
     verify_shader(shader)
     return {"records": 3, "overrides": 0, "master": "Skyrim.esm", "scripts": 0,
         "base_cost_per_second": 25, "area_feet": 20, "distance_cap_units": 420,
-        "skill_usage_multiplier": 0, "detection_color": "#F2C6B8", "casting_art": None,
+        "skill_usage_multiplier": 0, "detection_color": "#E0C8B8", "casting_art": None,
         "scope": "structural checks only; Skyrim execution not tested"}
 
 
@@ -96,7 +96,7 @@ def verify_shader(shader):
     require(all(field(shader, t) == b"\0" for t in ["ICON", "NAM7", "NAM8", "NAM9"]), "Unused shader texture/palette must be empty")
     data = field(shader, "DATA")
     require(len(data) == 400, "Invalid complete Skyrim EFSH DATA length")
-    require(all(data[o:o+4] == bytes([242, 198, 184, 0]) for o in [188, 192, 196]), "Shader RGB must be #F2C6B8")
+    require(all(data[o:o+4] == bytes([224, 200, 184, 0]) for o in [188, 192, 196]), "Shader RGB must be #E0C8B8")
     require(struct.unpack_from("<I", data, 384)[0] == 1, "Wrong shader flags: require direct RGB, particles on, membrane off")
     baseline_path = Path(__file__).resolve().parent / "data/life_detected_enemy.json"
     baseline = bytes.fromhex(json.loads(baseline_path.read_text())["data_hex"])
@@ -124,11 +124,11 @@ def verify_package(path):
         require(all(isinstance(v, str) and v for v in list(st.values()) + list(dl.values())), "Empty/invalid localization")
         require("25" in dl[4] and "6" in dl[4], "Wrong localized specification")
     manifest = json.loads((path / META / "build-manifest.json").read_text(encoding="utf-8"))
-    require(manifest["plugin"] == PLUGIN and manifest["version"] == "0.2.2", "Wrong package identity")
+    require(manifest["plugin"] == PLUGIN and manifest["version"] == "0.2.3", "Wrong package identity")
     require(manifest["overrides"] == manifest["scripts"] == manifest["quests"] == manifest["additional_skse_plugins"] == 0,
         "Incorrect runtime dependency claims")
     require(manifest["status"] == "structurally_verified_game_validation_pending", "Unsupported runtime validation claim")
-    require(manifest["detection_color"] == "#F2C6B8" and manifest["hand_casting_art"] is None, "Wrong appearance metadata")
+    require(manifest["detection_color"] == "#E0C8B8" and manifest["hand_casting_art"] is None, "Wrong appearance metadata")
     checksum = META + "/SHA256SUMS.txt"
     checked = set()
     for line in (path / checksum).read_text().splitlines():

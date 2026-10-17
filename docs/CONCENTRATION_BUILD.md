@@ -1,4 +1,4 @@
-# 集中呪文版0.2.2の制作・検査
+# 集中呪文版0.2.3の制作・検査
 
 Python 3.10以上の標準ライブラリだけで生成・基本検査できます。旧版用の.NET・Caprica・Wineは使いません。ビルドは独立した新規レコードを書きます。専用EFSHはユーザー提供のxEditテキストにある標準シェーダーの設定から復元し、別IDへ複製・調整します。ゲームや第三者ESPのレコード自体は上書きせず、画像・モデル・第三者ツールを同梱しません。
 
@@ -6,10 +6,12 @@ Python 3.10以上の標準ライブラリだけで生成・基本検査できま
 python3 tools/build_concentration.py --package-only
 python3 -m unittest discover -s tests -p test_concentration.py -v
 python3 tools/build_concentration.py
-python3 tools/verify_concentration.py dist/KhajiitKeenSensesConcentration-0.2.2-MO2.zip
+python3 tools/verify_concentration.py dist/KhajiitKeenSensesConcentration-0.2.3-MO2.zip
 ```
 
-作業ディレクトリはこのソースZIPを解凍したルートです。生成先は `build/concentration-0.2.2/` と `dist/`。既存の旧版ZIPと旧PluginBuilder／Papyrusソースは変更しません。同じ版の配布物が存在し、内容が異なる場合は上書きを拒否します。リリース済み成果物を変更する場合は新しい版にします。
+作業ディレクトリはこのソースZIPを解凍したルートです。生成先は `build/concentration-0.2.3/` と `dist/`。既存の旧版ZIPと旧PluginBuilder／Papyrusソースは変更しません。同じ版の配布物が存在し、内容が異なる場合は上書きを拒否します。リリース済み成果物を変更する場合は新しい版にします。
+
+0.2.3のリリース作業では色差分と梱包時の構造チェックだけを確認しました。上記のテスト一式と、以下の第三者読み戻しは再実行していません。
 
 ## 独立読み戻し
 
@@ -19,7 +21,7 @@ python3 tools/verify_concentration.py dist/KhajiitKeenSensesConcentration-0.2.2-
 
 ```bash
 npm --prefix /tmp/lksc-reader install --ignore-scripts --save-exact @fcrick/tes-data@0.0.1
-node tools/verify_concentration_third_party.cjs /tmp/lksc-reader/node_modules/@fcrick/tes-data build/concentration-0.2.2/KhajiitKeenSensesConcentration.esp
+node tools/verify_concentration_third_party.cjs /tmp/lksc-reader/node_modules/@fcrick/tes-data build/concentration-0.2.3/KhajiitKeenSensesConcentration.esp
 ```
 
 検査ではTES4と3つのGRUPを辿り、全レコード・サブレコードを第三者リーダーで読みます。EFSH／MGEF DATA・SPIT・CTDA・EFITを同じライブラリで再出力して元のバイト列と一致することも確かめます。この読み戻しもSkyrimの実行を代替しません。
@@ -34,7 +36,7 @@ node tools/verify_concentration_third_party.cjs /tmp/lksc-reader/node_modules/@f
 - 探知対象条件はSubject。使用者条件はSPELの効果エントリーでTarget（術者）を指定。プレイヤーAND（通常Khajiit OR 吸血鬼Khajiit）。自己参照のHasMagicEffect条件は使いません。
 - 原仕様の死体・アンデッド・機械除外と標準NoDetectLifeを維持。対象の種族・敵味方による条件は付けません。
 - 標準LifeDetectedEnemyの400バイトの設定は `tools/data/life_detected_enemy.json` に保持。100個のフィールド名・オフセット・値を記録し、Skyrimの元EFSHのData Size 536も、400バイトDATAと全サブレコード長で再計算して照合しました。
-- 専用EFSH `LKSC_DetectionAmberShader`（ローカル802）では、DATAの188／192／196にRGB(242,198,184)、384のFlagsを0x10001から0x1へ変更。Particle Grayscale Colorを解除し、NAM9も空にして直接RGBを使用。その他の粒子・透明度・合成・Z Testの設定は変更しません。0.2.1からはこの3キーのRGBだけを変更し、Editor IDとFormIDは維持します。
+- 専用EFSH `LKSC_DetectionAmberShader`（ローカル802）では、DATAの188／192／196にRGB(224,200,184)、384のFlagsを0x10001から0x1へ変更。Particle Grayscale Colorを解除し、NAM9も空にして直接RGBを使用。その他の粒子・透明度・合成・Z Testの設定は変更しません。0.2.2からはこの3キーのRGBだけを変更し、Editor IDとFormIDは維持します。
 - MGEFのHit Shaderを専用EFSHへ、Casting ArtをNULLへ変更。Casting Light・Hit Art・ImageSpaceModifier等もNULL。音・腕のアニメーション・通常の詠唱処理は維持。
 - 公開済み0.2.0のフィールドを記録した `tests/fixtures/v020-concentration.json` と照合し、SPELの全サブレコード、MGEFの上記2参照以外が同じであることを検査します。
 - 独自VMAD・Papyrus・QUST・DLL・アップデート登録・タイムスタンプ・共有シャウト待機の変更なし。
