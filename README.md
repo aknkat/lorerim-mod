@@ -6,6 +6,8 @@
 
 **現在の診断：** 主能力800の直接Castは光らず、同じ状態で内部探知803をCastすると光りました。案内した `cqf` は認識されなかったため撤回します。[診断用追加MOD diagnostic3](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSenses-0.1.4-diagnostic3-MO2.zip) はコマンド入力不要。通常のY＋RTから起動箇所・時計・保存期限・判定結果を表示します。修正済み本体ではありません。[診断手順](docs/RELOAD_DIAGNOSTIC.md) と [診断用ソースZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSenses-0.1.4-diagnostic3-source.zip)。
 
+その後の実機画像では、診断の数値画面まで到達し、保存期限は満了、`TryActivate accepted: TRUE` を確認できました。今回の入力は内部の待機判定を通っています。NPCが実際に光ったか、通常版のロード後の不発が解決したかは、この画像だけでは確認できません。
+
 カジートのプレイヤー向けに、半径約8mの生物を2秒間探知する特殊能力（Lesser Power）を追加します。再使用は60秒後、マジカ・スタミナ消費は0。既存のナイトアイ、種族、Perk、NPCは変更しません。
 
 ## v0.1.4：ロード後に待機が解除されない問題への変更
