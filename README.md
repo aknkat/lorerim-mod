@@ -10,6 +10,8 @@ diagnostic3では、数値画面まで到達し、保存期限は満了、`TryAc
 
 **使用中プロファイルの照合結果：** 提供されたMO2の3一覧では、有効プラグイン3413件の順序は一致し、診断5が本体より優先され、LKSのESPは最後でした。後続ESPによる上書きや診断版の優先順位違いを示す証拠はありません。関連する入力・魔法処理のMODも有効ですが、特定MODが不発の原因とは確定していません。次は仮想Dataの `SKSE/Plugins/PapyrusTweaks.ini` 1ファイルで実効設定を確認します。新しい試験版やゲーム内テストは追加していません。[調査の根拠と限界](docs/RUNTIME_INTERACTION_AUDIT.md)。
 
+添付されたPapyrusTweaks.dllのPE版情報は4.1.1.0。DLLTweaks.dllとDLLTweaks.iniは別MODで、Papyrusの高速化設定ではありません。Papyrus Tweaks 4.1.1の公開実装は起動時にINIを読み書きするため、MODフォルダー内にINIがない場合の候補は `overwrite/SKSE/Plugins/PapyrusTweaks.ini` です。この場所の実在や実効設定は未確認で、INIを作成・変更したり、そのためにゲームを起動したりする必要はありません。
+
 カジートのプレイヤー向けに、半径約8mの生物を2秒間探知する特殊能力（Lesser Power）を追加します。再使用は60秒後、マジカ・スタミナ消費は0。既存のナイトアイ、種族、Perk、NPCは変更しません。
 
 ## v0.1.4：ロード後に待機が解除されない問題への変更

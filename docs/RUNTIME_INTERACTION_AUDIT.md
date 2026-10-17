@@ -44,11 +44,33 @@ LKSより後のESPが新規レコードを上書きしているという説明�
 
 powerofthree's Tweaksの公開ソースでは、ScriptSpeedupが対象にするのはUtility.RandomInt/RandomFloatであり、Castを直接高速化する処理ではなかった [T1]。また、調べたロード時の魔法再適用処理はプレイヤーを除外している [T2]。これも導入済み版と設定の照合がないため、MOD全体の無関係を証明するものではない。
 
+## 追記：添付DLLとDLLTweaks.iniの静的確認
+
+ユーザーはPapyrus Tweaks NG側からPapyrusTweaks.dll、DLL Tweaks側からDLLTweaks.iniとDLLTweaks.dllを提供した。案内した2つのMODディレクトリにPapyrusTweaks.iniはなかった。これは仮想Data全体にもINIがないという確認ではない。DLLは実行せず、PEヘッダー・版情報・エクスポート・ASCII/UTF-16文字列と、INI本文を読んだ。添付バイナリやINI原本は公開リポジトリに追加しない。
+
+| 添付 | バイト数 | SHA256 | 確認結果 |
+|---|---:|---|---|
+| PapyrusTweaks.dll | 969216 | `109ded0cb55b0139a1b883756c54d154da47600f4e9e11d7349bba5e8554c85a` | PE版情報4.1.1.0、プラグイン名PapyrusTweaks、作者Nightfallstorm |
+| DLLTweaks.ini | 543 | `20da2bdb2c7f9dd1be801d28af05cd92c77a5265297d71b36002fb5e61b55925` | Papyrus Tweaksの設定項目はない |
+| DLLTweaks.dll | 832512 | `cf731365c3f8cf8597132d375fa574f23d028e2deba4708771e9fe84fd44d498` | PE版情報1.2.2.0、プラグイン名DLLTweaks、作者FTweaks Team |
+
+PapyrusTweaks.dllにはUTF-16で `Data/SKSE/Plugins/PapyrusTweaks.ini` が含まれ、3つの高速化設定名と、Castを含む標準の関数除外リストも確認できた。4.1.1の公開ソースを取得し直したところ、設定を読み、値を補い、同じパスへ `SaveFile` する実装だった [P4]。4.1.1でも高速化の初期値はfalse、標準の除外リストにはCastがある [P5]。**添付DLLの実ロード、ソースとの全バイト一致、実際に読んだINIの値を確認したものではない。**
+
+DLLTweaks.dllのINIパスは別の `Data\SKSE\Plugins\DLLTweaks.ini`。提供されたINIは、Nord開始時の修正false、種族身長による移動速度補正の変更true、吸収確率上限true、集中呪文の追加制限true、隠密ジャンプ高さ変更false・係数0.55だった。DLLTweaksの公開実装でもINIは独立しており、集中呪文に対する追加のコスト条件はCastingTypeがConcentrationの場合にだけ使う [D1][D2]。LKSはコスト0のFire and Forgetで、この追加制限から不発を説明する根拠は得られなかった。全フックや他MODとの組み合わせの無関係を証明した意味ではない。
+
+DLLTweaks.iniはPapyrusTweaks.iniの代わりにならない。DLL Tweaksという名前や優先順位だけで、Papyrus Tweaksの高速化設定を上書きしているとは扱わない。
+
 ## 次に必要な資料を1ファイルへ限定
 
-MO2右側の **Dataタブ → SKSE → Plugins → PapyrusTweaks.ini** に表示される、実際に優先されるファイルを読む。Papyrus Tweaks NGのMODフォルダーにある初期設定とは限らない。DLL Tweaksは一覧上で優先されるが、このファイルを提供しているかは未確認。提供元の表示も記録する。
+前のディレクトリ案内はMODフォルダーだけで、自動生成ファイルの保存先の案内が抜けていた。MO2で新規生成されたファイルは通常Overwriteへ送られるため、次の候補だけを確認する。実際のインストール先の絶対パスは取得していない。
 
-公開ソースでは次の設定を読む [P2]。
+```text
+<LoreRimのインストール先>\overwrite\SKSE\Plugins\PapyrusTweaks.ini
+```
+
+これは生成先の候補であり、この環境に実在するとの確認ではない。MO2で出力先を変更していれば別の場所になる。仮想Dataタブの `SKSE/Plugins/PapyrusTweaks.ini` が見つかる場合は、その提供元が実際の確認対象になる。INIを新規作成したり、探すためにゲームを起動したりする必要はない。この候補にもなければ、未取得として記録し、さらに候補ディレクトリや試験版を追加し続けない。
+
+4.1.1の公開ソースでも次の設定を読む [P4]。
 
 ```ini
 [Experimental]
@@ -78,3 +100,7 @@ sScriptMethodPrefixesToExclude=...
 - [E1: ENB Light Detection Fixのフック](https://github.com/clayne/ENBLightDetectionFix/blob/5473f99b6b1893ec8d81bafafcb8a633763ff5c0/src/ENBLightAffectsStealth.h#L61-L108)
 - [T1: powerofthree's TweaksのScriptSpeedup](https://github.com/powerof3/po3-Tweaks/blob/47e8b72118b2e666af3c03fc3baaec8f73972f94/src/Experimental/ScriptSpeedup.cpp#L4-L24)
 - [T2: powerofthree's Tweaksのロード時の魔法再適用](https://github.com/powerof3/po3-Tweaks/blob/47e8b72118b2e666af3c03fc3baaec8f73972f94/src/Fixes/ReapplySpellsOnLoad.cpp#L12-L19)
+- [P4: Papyrus Tweaks 4.1.1のINI読み書き](https://github.com/Nightfallstorm/PapyrusTweaks/blob/7e1379b2a19cf5d3ee26cef0e08e9d8ed92837d3/src/Settings.cpp#L9-L34)
+- [P5: Papyrus Tweaks 4.1.1の高速化初期値とCast除外](https://github.com/Nightfallstorm/PapyrusTweaks/blob/7e1379b2a19cf5d3ee26cef0e08e9d8ed92837d3/src/Settings.h#L43-L54)
+- [D1: DLLTweaksの独立した設定読み込み](https://github.com/digital-apple/DLLTweaks/blob/b9a80a94f06decec61d42f500594360ce248db17/source/Settings.cpp#L3-L21)
+- [D2: DLLTweaksの集中呪文コスト判定](https://github.com/digital-apple/DLLTweaks/blob/b9a80a94f06decec61d42f500594360ce248db17/source/Hooks.cpp#L64-L79)
