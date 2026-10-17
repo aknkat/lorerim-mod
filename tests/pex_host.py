@@ -178,7 +178,7 @@ class Host:
             return None
         elif receiver is self.manager and method == 'isrunning' and not args:
             return self.running
-        elif receiver is self.manager and method == 'tryactivate':
+        elif receiver is self.manager and any(key.lower() == method for key in self.manager.obj['states']['']):
             return self.manager.invoke(name, args, self)
         elif receiver is self.manager and method == "registerforsingleupdate":
             self.due = self.now + args[0]

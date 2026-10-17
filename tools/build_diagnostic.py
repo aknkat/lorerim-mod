@@ -13,8 +13,8 @@ from build import CAPRICA_SHA256, archive, source_archive, windows_path
 from formats import normalize_pex, read_pex, read_plugin, repair_caprica_skyrim_size, vmad
 
 ROOT = Path(__file__).resolve().parent.parent
-WORK = ROOT / 'build' / 'diagnostic1'
-METADATA = 'KhajiitKeenSenses/diagnostic1/'
+WORK = ROOT / 'build' / 'diagnostic2'
+METADATA = 'KhajiitKeenSenses/diagnostic2/'
 BASE_SHA256 = '36473781515cb99d1f8bf47a05cff933ed2a4b37c1dd8360fb3b07e39c9a9fad'
 NAME = 'LKS_KeenSensesController'
 EXTRA = r'''
@@ -43,6 +43,11 @@ Function LKS_Probe()
     report += "Remaining after (seconds): " + afterRemaining
     Debug.MessageBox(report)
 EndFunction
+
+; ASCII-only alias for consoles where an underscore cannot be entered.
+Function LKSProbe()
+    LKS_Probe()
+EndFunction
 '''
 
 
@@ -60,8 +65,19 @@ def verify_behavior(original, diagnostic, effect, bindings, manager_bindings):
             if diagnostic['states'][state].get(name) != function:
                 raise ValueError(f'Diagnostic changed original function: {name}')
     added = set(diagnostic['states']['']) - set(original['states'][''])
-    if added != {'LKS_Probe'}:
+    if added != {'LKS_Probe', 'LKSProbe'}:
         raise ValueError(f'Unexpected extra functions: {added}')
+    legacy_path = ROOT / 'dist/KhajiitKeenSenses-0.1.4-diagnostic1-MO2.zip'
+    if hashlib.sha256(legacy_path.read_bytes()).hexdigest() != 'bf006da3fd02b5030aa7c6e5c558ac44543890fe8414ab83ecba33f5bffb0868':
+        raise ValueError('Published diagnostic1 archive was changed')
+    with zipfile.ZipFile(legacy_path) as z:
+        legacy = read_pex(z.read(f'Scripts/{NAME}.pex'))['objects'][0]
+    for key in ('variables', 'properties'):
+        if diagnostic[key] != legacy[key]:
+            raise ValueError(f'Alias changed diagnostic1 saved layout: {key}')
+    for name, fn in legacy['states'][''].items():
+        if diagnostic['states'][''].get(name) != fn:
+            raise ValueError(f'Alias changed diagnostic1 function: {name}')
     for case in ('ready', 'cooldown', 'wrong-race', 'missing-spell'):
         host = Host(effect, diagnostic, bindings, manager_bindings)
         host.running = True
@@ -75,7 +91,7 @@ def verify_behavior(original, diagnostic, effect, bindings, manager_bindings):
             var = diagnostic['properties']['DetectionSpell']['variable'].lower()
             host.manager.fields[var] = None
         before = dict(host.manager.fields)
-        host.manager.invoke('LKS_Probe', [], host)
+        host.manager.invoke('lksprobe', [], host)
         if len(host.messages) != 1 or 'LKS DIAG1' not in host.messages[0]:
             raise ValueError(f'Probe report missing: {case}')
         expected = case == 'ready'
@@ -85,7 +101,7 @@ def verify_behavior(original, diagnostic, effect, bindings, manager_bindings):
             raise ValueError(f'Incorrect report: {case}')
         if case != 'ready' and before != host.manager.fields:
             raise ValueError(f'Rejected probe changed saved state: {case}')
-    print('Diagnostic verification: no new saved fields; all original functions identical; four compiled report cases passed.')
+    print('Diagnostic verification: no new saved fields; all v0.1.4/diagnostic1 functions identical; ASCII alias passed four compiled report cases.')
 
 
 def main():
@@ -139,12 +155,12 @@ def main():
     shutil.copy2(ROOT / 'docs/RELOAD_DIAGNOSTIC.md', package / METADATA / 'README.md')
     shutil.copy2(ROOT / 'LICENSE', package / METADATA / 'LICENSE.txt')
     (package / METADATA / 'build-manifest.json').write_text(json.dumps({
-        'version': '0.1.4-diagnostic1', 'requires': 'KhajiitKeenSenses 0.1.4',
+        'version': '0.1.4-diagnostic2', 'requires': 'KhajiitKeenSenses 0.1.4',
         'base_sha256': BASE_SHA256, 'new_records': 0, 'new_saved_variables': 0,
-        'original_functions_unchanged': True, 'command': 'cqf FECFD804 LKS_Probe',
+        'original_functions_unchanged': True, 'command': 'cqf FECFD804 lksprobe',
         'note': 'Probe attempts one normal activation; not a bug fix. Runtime command/display unverified.'
     }, indent=2) + '\n')
-    output = ROOT / 'dist/KhajiitKeenSenses-0.1.4-diagnostic1-MO2.zip'
+    output = ROOT / 'dist/KhajiitKeenSenses-0.1.4-diagnostic2-MO2.zip'
     archive(package, output, checksum_path=METADATA + 'SHA256SUMS.txt')
     with zipfile.ZipFile(output) as z:
         expected = {f'Scripts/{NAME}.pex', f'Scripts/Source/{NAME}.psc'} | {
@@ -155,7 +171,7 @@ def main():
             digest, name = line.split('  ', 1)
             if hashlib.sha256(z.read(name)).hexdigest() != digest:
                 raise ValueError('Diagnostic checksum failure')
-    source_archive(ROOT / 'dist/KhajiitKeenSenses-0.1.4-diagnostic1-source.zip')
+    source_archive(ROOT / 'dist/KhajiitKeenSenses-0.1.4-diagnostic2-source.zip')
 
 
 if __name__ == '__main__':
