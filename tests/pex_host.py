@@ -97,8 +97,16 @@ class ScriptInstance:
                 result = host.method(get(a[1]), a[0][1], [get(x) for x in extra])
                 put(a[2], result)
             elif op == 25:
-                if a[0][1].lower() == 'debug' and a[1][1].lower() == 'messagebox' and len(extra) == 1:
-                    host.messages.append(get(extra[0]))
+                if a[0][1].lower() == 'debug':
+                    method = a[1][1].lower()
+                    if method == 'messagebox' and len(extra) == 1:
+                        host.messages.append(get(extra[0]))
+                    elif method == 'notification' and len(extra) == 2:
+                        host.notifications.append((get(extra[0]), get(extra[1])))
+                    elif method == 'trace' and len(extra) == 2 and get(extra[1]) == 0:
+                        host.traces.append(get(extra[0]))
+                    else:
+                        raise ValueError('Unexpected Debug API')
                     put(a[2], None)
                     pc += 1
                     continue
@@ -142,6 +150,7 @@ class Host:
         self.play_hours = 100.0
         self.registrations, self.starts, self.casts = [], 0, []
         self.messages = []
+        self.notifications, self.traces = [], []
         self.getrace_hook = None
         self.register_hook = None
         self.clock_hook = None

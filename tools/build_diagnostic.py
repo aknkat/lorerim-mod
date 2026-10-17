@@ -13,8 +13,8 @@ from build import CAPRICA_SHA256, archive, source_archive, windows_path
 from formats import normalize_pex, read_pex, read_plugin, repair_caprica_skyrim_size, vmad
 
 ROOT = Path(__file__).resolve().parent.parent
-WORK = ROOT / 'build' / 'diagnostic3'
-METADATA = 'KhajiitKeenSenses/diagnostic3/'
+WORK = ROOT / 'build' / 'diagnostic4'
+METADATA = 'KhajiitKeenSenses/diagnostic4/'
 BASE_SHA256 = '36473781515cb99d1f8bf47a05cff933ed2a4b37c1dd8360fb3b07e39c9a9fad'
 NAME = 'LKS_KeenSensesController'
 EFFECT = 'LKS_KeenSensesEffect'
@@ -33,7 +33,7 @@ Function LKS_Probe()
     Float beforeRemaining = (beforeDeadline - nowHours) * 3600.0
     Bool accepted = TryActivate(playerRef, playerRef)
     Float afterRemaining = (readyAtHours - Game.GetRealHoursPassed()) * 3600.0
-    String report = "LKS DIAG1 - v0.1.4\n"
+    String report = "LKS DIAG4 - v0.1.4\n"
     report += "Quest running: " + questRunning + "\n"
     report += "Race allowed: " + raceAllowed + "\n"
     report += "Spell bound: " + spellBound + "\n"
@@ -42,7 +42,12 @@ Function LKS_Probe()
     report += "Remaining before (seconds): " + beforeRemaining + "\n"
     report += "TryActivate accepted: " + accepted + "\n"
     report += "Remaining after (seconds): " + afterRemaining
-    Debug.MessageBox(report)
+    If accepted
+        Debug.Notification("LKS: ACCEPTED - cast requested", True)
+    Else
+        Debug.Notification("LKS: BLOCKED", True)
+    EndIf
+    Debug.Trace(report)
 EndFunction
 
 ; Retain the diagnostic2 entry point.
@@ -52,12 +57,12 @@ EndFunction
 '''
 
 TRIGGER = r'''Event OnEffectStart(Actor akTarget, Actor akCaster)
-    Debug.MessageBox("LKS DIAG3: INPUT START\nClose this message to continue to the controller report.")
+    Debug.Notification("LKS: INPUT", True)
     Actor playerRef = Game.GetPlayer()
     If akTarget != playerRef || akCaster != playerRef
-        Debug.MessageBox("LKS DIAG3: target or caster is not PlayerRef.")
+        Debug.Notification("LKS: ERROR - not PlayerRef", True)
     ElseIf CooldownController == None
-        Debug.MessageBox("LKS DIAG3: CooldownController is not bound.")
+        Debug.Notification("LKS: ERROR - controller not bound", True)
     Else
         Bool controllerReady = CooldownController.IsRunning()
         If !controllerReady
@@ -68,10 +73,10 @@ TRIGGER = r'''Event OnEffectStart(Actor akTarget, Actor akCaster)
             If controller != None
                 controller.LKSProbe()
             Else
-                Debug.MessageBox("LKS DIAG3: controller script cast returned None.")
+                Debug.Notification("LKS: ERROR - script cast None", True)
             EndIf
         Else
-            Debug.MessageBox("LKS DIAG3: controller quest Start failed.")
+            Debug.Notification("LKS: ERROR - Start failed", True)
         EndIf
     EndIf
 EndEvent
@@ -101,6 +106,8 @@ def verify_behavior(original, diagnostic, effect, bindings, manager_bindings):
             host.activate()
             host.advance(15)
             host.casts.clear()
+            host.notifications.clear()
+            host.traces.clear()
         elif case == 'wrong-race':
             host.race = 0x13746
         elif case == 'missing-spell':
@@ -108,13 +115,16 @@ def verify_behavior(original, diagnostic, effect, bindings, manager_bindings):
             host.manager.fields[var] = None
         before = dict(host.manager.fields)
         host.manager.invoke('lksprobe', [], host)
-        if len(host.messages) != 1 or 'LKS DIAG1' not in host.messages[0]:
+        if host.messages or len(host.traces) != 1 or 'LKS DIAG4' not in host.traces[0]:
             raise ValueError(f'Probe report missing: {case}')
         expected = case == 'ready'
         if len(host.casts) != int(expected) or host.registrations:
             raise ValueError(f'Unexpected activation/timer: {case}')
-        if f'TryActivate accepted: {expected}' not in host.messages[0]:
+        if f'TryActivate accepted: {expected}' not in host.traces[0]:
             raise ValueError(f'Incorrect report: {case}')
+        expected_notice = 'LKS: ACCEPTED - cast requested' if expected else 'LKS: BLOCKED'
+        if host.notifications != [(expected_notice, True)]:
+            raise ValueError(f'Incorrect nonmodal notification: {case}')
         if case != 'ready' and before != host.manager.fields:
             raise ValueError(f'Rejected probe changed saved state: {case}')
     print('Controller diagnostic: no new saved fields; all v0.1.4 functions identical; four compiled report cases passed.')
@@ -143,6 +153,8 @@ def verify_input(original, diagnostic, controller, bindings, manager_bindings):
             host.advance(15)
             host.casts.clear()
             host.messages.clear()
+            host.notifications.clear()
+            host.traces.clear()
         elif case == 'wrong-race':
             host.race = 0x13746
         elif case == 'missing-spell':
@@ -153,15 +165,18 @@ def verify_input(original, diagnostic, controller, bindings, manager_bindings):
         elif case == 'start-failed':
             host.start_ok = False
         host.activate('npc' if case == 'wrong-target' else 'player', 'player')
-        if len(host.messages) != 2 or 'LKS DIAG3: INPUT START' not in host.messages[0]:
+        if host.messages or len(host.notifications) != 2 or host.notifications[0] != ('LKS: INPUT', True):
             raise ValueError(f'Input diagnostic messages missing: {case}')
         if len(host.casts) != int(case == 'ready') or host.registrations:
             raise ValueError(f'Input diagnostic cast/timer mismatch: {case}')
         errors = {'missing-controller': 'not bound', 'start-failed': 'Start failed',
                   'wrong-target': 'not PlayerRef'}
-        expected = errors.get(case, f'TryActivate accepted: {case == "ready"}')
-        if expected not in host.messages[1]:
+        expected = errors.get(case, 'ACCEPTED' if case == 'ready' else 'BLOCKED')
+        if expected not in host.notifications[1][0]:
             raise ValueError(f'Input diagnostic result mismatch: {case}')
+        if case not in errors and (len(host.traces) != 1 or
+                f'TryActivate accepted: {case == "ready"}' not in host.traces[0]):
+            raise ValueError(f'Input diagnostic trace mismatch: {case}')
     print('Power input diagnostic: saved layout unchanged; seven compiled entry/report/error cases passed.')
 
 
@@ -213,6 +228,24 @@ def main():
         shutil.copy2(source / (name + '.psc'), package / 'Scripts/Source')
     diagnostic = read_pex(package / 'Scripts' / (NAME + '.pex'))['objects'][0]
     diagnostic_effect = read_pex(package / 'Scripts' / (EFFECT + '.pex'))['objects'][0]
+    debug_calls = set()
+    for obj in (diagnostic, diagnostic_effect):
+        for functions in obj['states'].values():
+            for function in functions.values():
+                for instruction in function['code']:
+                    operands = instruction['args']
+                    if instruction['op'] == 25:
+                        api, method = operands[0][1].lower(), operands[1][1].lower()
+                        if (api, method) not in {('game', 'getplayer'), ('game', 'getrealhourspassed'),
+                                                 ('debug', 'notification'), ('debug', 'trace')}:
+                            raise ValueError(f'Unexpected global API: {api}.{method}')
+                        if api == 'debug':
+                            debug_calls.add(method)
+                    if instruction['op'] == 23 and operands[0][1].lower() in {
+                            'registerforupdate', 'registerforsingleupdate', 'equipspell', 'unequipspell'}:
+                        raise ValueError('Diagnostic added a timer or equipment operation')
+    if debug_calls != {'notification', 'trace'}:
+        raise ValueError('Diagnostic must use nonmodal notifications and tracing only')
     records, _ = read_plugin(esp)
     forms = {r['id'] & 0xFFFFFF: r for r in records[1:]}
     bindings = vmad(forms[0x801])[EFFECT]['properties']
@@ -222,13 +255,14 @@ def main():
     shutil.copy2(ROOT / 'docs/RELOAD_DIAGNOSTIC.md', package / METADATA / 'README.md')
     shutil.copy2(ROOT / 'LICENSE', package / METADATA / 'LICENSE.txt')
     (package / METADATA / 'build-manifest.json').write_text(json.dumps({
-        'version': '0.1.4-diagnostic3', 'requires': 'KhajiitKeenSenses 0.1.4',
+        'version': '0.1.4-diagnostic4', 'requires': 'KhajiitKeenSenses 0.1.4',
         'base_sha256': BASE_SHA256, 'new_records': 0, 'new_saved_variables': 0,
         'controller_functions_unchanged': True, 'input_event_instrumented': True,
         'command_required': False, 'activation': 'Use the existing Keen Senses power once',
+        'ui': 'Nonmodal notifications only; no MessageBox, menu or Wait call',
         'note': 'Probe attempts one normal activation; not a bug fix. Skyrim runtime/display unverified.'
     }, indent=2) + '\n')
-    output = ROOT / 'dist/KhajiitKeenSenses-0.1.4-diagnostic3-MO2.zip'
+    output = ROOT / 'dist/KhajiitKeenSenses-0.1.4-diagnostic4-MO2.zip'
     archive(package, output, checksum_path=METADATA + 'SHA256SUMS.txt')
     with zipfile.ZipFile(output) as z:
         expected = {f'Scripts/{name}.pex' for name in (NAME, EFFECT)} | {
@@ -240,7 +274,7 @@ def main():
             digest, name = line.split('  ', 1)
             if hashlib.sha256(z.read(name)).hexdigest() != digest:
                 raise ValueError('Diagnostic checksum failure')
-    source_archive(ROOT / 'dist/KhajiitKeenSenses-0.1.4-diagnostic3-source.zip')
+    source_archive(ROOT / 'dist/KhajiitKeenSenses-0.1.4-diagnostic4-source.zip')
 
 
 if __name__ == '__main__':
