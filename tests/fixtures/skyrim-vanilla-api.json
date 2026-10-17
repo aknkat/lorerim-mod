@@ -1,0 +1,126 @@
+{
+  "repository": "https://github.com/BellCubeDev/papyrus-index",
+  "commit": "ec822650d44885707c01e90eeb569551f0ab8ddb",
+  "functions": [
+    {
+      "script": "Debug",
+      "name": "MessageBox",
+      "returns": "none",
+      "parameters": [
+        "string"
+      ],
+      "global": true,
+      "declaration": "Function MessageBox(string asMessageBoxText) native global",
+      "source_url": "https://github.com/BellCubeDev/papyrus-index/blob/ec822650d44885707c01e90eeb569551f0ab8ddb/data/SkyrimSE/vanilla/Debug.psc#L33",
+      "source_sha256": "c4aa9306008bf038e7836ed068050f489cb4b7735db260d448742b565e914e96"
+    },
+    {
+      "script": "Debug",
+      "name": "Notification",
+      "returns": "none",
+      "parameters": [
+        "string"
+      ],
+      "global": true,
+      "declaration": "Function Notification(string asNotificationText) native global",
+      "source_url": "https://github.com/BellCubeDev/papyrus-index/blob/ec822650d44885707c01e90eeb569551f0ab8ddb/data/SkyrimSE/vanilla/Debug.psc#L36",
+      "source_sha256": "c4aa9306008bf038e7836ed068050f489cb4b7735db260d448742b565e914e96"
+    },
+    {
+      "script": "Debug",
+      "name": "Trace",
+      "returns": "none",
+      "parameters": [
+        "string",
+        "int"
+      ],
+      "global": true,
+      "declaration": "Function Trace(string asTextToPrint, int aiSeverity = 0) native global",
+      "source_url": "https://github.com/BellCubeDev/papyrus-index/blob/ec822650d44885707c01e90eeb569551f0ab8ddb/data/SkyrimSE/vanilla/Debug.psc#L87",
+      "source_sha256": "c4aa9306008bf038e7836ed068050f489cb4b7735db260d448742b565e914e96"
+    },
+    {
+      "script": "Game",
+      "name": "GetPlayer",
+      "returns": "actor",
+      "parameters": [],
+      "global": true,
+      "declaration": "Actor Function GetPlayer() native global",
+      "source_url": "https://github.com/BellCubeDev/papyrus-index/blob/ec822650d44885707c01e90eeb569551f0ab8ddb/data/SkyrimSE/vanilla/Game.psc#L113",
+      "source_sha256": "98d123d9deacf101c333ead131677196979910270d861d130d0a93f1d433f6ba"
+    },
+    {
+      "script": "Game",
+      "name": "GetRealHoursPassed",
+      "returns": "float",
+      "parameters": [],
+      "global": true,
+      "declaration": "float Function GetRealHoursPassed() native global",
+      "source_url": "https://github.com/BellCubeDev/papyrus-index/blob/ec822650d44885707c01e90eeb569551f0ab8ddb/data/SkyrimSE/vanilla/Game.psc#L131",
+      "source_sha256": "98d123d9deacf101c333ead131677196979910270d861d130d0a93f1d433f6ba"
+    },
+    {
+      "script": "Actor",
+      "name": "GetRace",
+      "returns": "race",
+      "parameters": [],
+      "global": false,
+      "declaration": "Race Function GetRace() native",
+      "source_url": "https://github.com/BellCubeDev/papyrus-index/blob/ec822650d44885707c01e90eeb569551f0ab8ddb/data/SkyrimSE/vanilla/Actor.psc#L281",
+      "source_sha256": "0352f77da94f238812636ef2436442df7316175b70f9fff0082de5cd61428e0e"
+    },
+    {
+      "script": "Quest",
+      "name": "IsRunning",
+      "returns": "bool",
+      "parameters": [],
+      "global": false,
+      "declaration": "bool Function IsRunning() native",
+      "source_url": "https://github.com/BellCubeDev/papyrus-index/blob/ec822650d44885707c01e90eeb569551f0ab8ddb/data/SkyrimSE/vanilla/Quest.psc#L88",
+      "source_sha256": "cf6644f385342c1d2478a417c5f9beefa900a552569808f03f03bd5fcf992d83"
+    },
+    {
+      "script": "Quest",
+      "name": "Start",
+      "returns": "bool",
+      "parameters": [],
+      "global": false,
+      "declaration": "bool Function Start() native",
+      "source_url": "https://github.com/BellCubeDev/papyrus-index/blob/ec822650d44885707c01e90eeb569551f0ab8ddb/data/SkyrimSE/vanilla/Quest.psc#L129",
+      "source_sha256": "cf6644f385342c1d2478a417c5f9beefa900a552569808f03f03bd5fcf992d83"
+    },
+    {
+      "script": "Spell",
+      "name": "Cast",
+      "returns": "none",
+      "parameters": [
+        "objectreference",
+        "objectreference"
+      ],
+      "global": false,
+      "declaration": "Function Cast(ObjectReference akSource, ObjectReference akTarget=NONE) native",
+      "source_url": "https://github.com/BellCubeDev/papyrus-index/blob/ec822650d44885707c01e90eeb569551f0ab8ddb/data/SkyrimSE/vanilla/Spell.psc#L4",
+      "source_sha256": "56c55a492d10745e55ca2adb4cd1ca86f9f20a45df738b6ee21cc3f7ee8b8ba7"
+    },
+    {
+      "script": "Form",
+      "name": "RegisterForSingleUpdate",
+      "returns": "none",
+      "parameters": [
+        "float"
+      ],
+      "global": false,
+      "declaration": "Function RegisterForSingleUpdate(float afInterval) native",
+      "source_url": "https://github.com/BellCubeDev/papyrus-index/blob/ec822650d44885707c01e90eeb569551f0ab8ddb/data/SkyrimSE/vanilla/Form.psc#L41",
+      "source_sha256": "8c02486bf9366ffd04d932786e6aa2848779bd41e9000dbb0dd49a68ce3dfe67"
+    }
+  ],
+  "parents": {
+    "actor": "objectreference",
+    "debug": null,
+    "form": null,
+    "game": null,
+    "quest": "form",
+    "spell": "form"
+  }
+}

@@ -1,8 +1,12 @@
-# v0.1.4 diagnostic4：画面を塞がず発動経路を確認する
+# v0.1.4 diagnostic5：画面を塞がず発動経路を確認する
 
 主能力800の直接Castは光らず、内部探知803の直接Castは光ったとの実機報告がある。diagnostic3の画像では、Quest running / Race allowed / Spell bound / TryActivate acceptedはいずれもTRUEで、保存期限も満了していた。ただしユーザーは発光をよく見ておらず、光らなかった気がするとの回答だった。発光は未確認であり、成功・失敗のどちらとも確定しない。
 
-診断3は探知Castの後に数値画面を出すため、2秒間の発光が画面に隠れる欠点があった。**diagnostic4はダイアログを廃止し、画面を塞がない通知へ置き換える。** 本体の不発を修正した版ではない。発動条件・探知レコード・クールダウンの元の処理は変更しない。
+**診断4にはAPIの実装ミスがあったため使用を撤回する。** SkyrimのDebug.Notificationは文字列1つだけを受け取るが、診断4は余分なBoolも渡していた。実機では起動直後の処理を失敗させ得る。模擬ホストも同じ誤った宣言を前提にしていたため、以前の合格はこの不具合を検出できなかった。ユーザーの「何も起きない」との報告について、通知は見逃しており未確認だと補足された。実機ログがないため、今回の不発がこのエラーによるものかまでは断定しない。
+
+診断5は余分な引数を除き、使うNative APIの宣言と実際のPEXの呼び出しを独立した公開ソースに照合する。診断4を再試験する必要はない。参照した通知宣言は [Papyrus IndexのSkyrimSE/vanilla/Debug.psc](https://github.com/BellCubeDev/papyrus-index/blob/ec822650d44885707c01e90eeb569551f0ab8ddb/data/SkyrimSE/vanilla/Debug.psc#L36)。
+
+診断3は探知Castの後に数値画面を出すため、2秒間の発光が画面に隠れる欠点があった。**diagnostic5はダイアログを廃止し、画面を塞がない通知へ置き換える。** 本体の不発を修正した版ではない。発動条件・探知レコード・クールダウンの元の処理は変更しない。
 
 ## 導入と実行
 
@@ -20,7 +24,7 @@
 - `BLOCKED`：元のTryActivateがFalseを返した。クールダウン・種族・参照など、拒否理由は通知単体では区別しない。
 - `ERROR ...`：PlayerRef、Controller参照、Quest開始、スクリプトのキャストのいずれかで中断した。
 
-診断3の画面を見落とした確認を、そのままやり直す必要はない。診断4で結果を取る場合も1回の発動だけにする。今回の発光が見えれば探知描画まで動いたと分かるが、通常版のロード後不発の原因や修正成功まで証明するものではない。
+診断3の画面を見落とした確認を、そのままやり直す必要はない。診断5で結果を取る場合も1回の発動だけにする。今回の発光が見えれば探知描画まで動いたと分かるが、通常版のロード後不発の原因や修正成功まで証明するものではない。
 
 ## 保存状態と依存
 
@@ -28,13 +32,13 @@
 
 新しい保存変数・タイマー・Wait・OnPlayerLoadGame・Alias・装備変更はない。Debug.Notification / Debug.TraceはバニラPapyrusで、追加のSKSE・DLLは必要ない。通知の処理時間の影響と、本体の保存状態への依存は残る。診断が終わったらゲーム終了後に**診断MODだけを無効化**すると、元の本体PEXへ戻る。本体の削除・Resetは不要。
 
-詳細な数値はDebug.Traceにも出す。既存のPapyrusログが有効な環境では `LKS DIAG4` が目印になるが、今回の確認のためにINIを変更する必要はない。ログが無効でも画面の通知と探知は実行する。
+詳細な数値はDebug.Traceにも出す。既存のPapyrusログが有効な環境では `LKS DIAG5` が目印になるが、今回の確認のためにINIを変更する必要はない。ログが無効でも画面の通知と探知は実行する。
 
 ## 制作・検査
 
-`tools/build_diagnostic.py` は公開済みv0.1.4 ZIPのSHA256を固定し、そのPSCから診断用2スクリプトをstrictコンパイルする。保存レイアウト、コントローラーの元の全関数、入力の変更対象外の関数が同一であることを解析する。
+`tools/build_diagnostic.py` は公開済みv0.1.4 ZIPのSHA256を固定し、そのPSCから診断用2スクリプトをstrictコンパイルする。コンパイル用の10宣言を固定した公開APIの署名と照合し、全呼び出しの引数数・型・戻り先を検査する。保存レイアウト、コントローラーの元の全関数、入力の変更対象外の関数が同一であることを解析する。
 
-実際のPEXで、コントローラー4ケースと、入力からの準備完了・待機中・別種族・未設定SPEL・未設定Controller・Quest開始失敗・別対象の7ケースを模擬実行する。通知内容とTrace、モーダル表示がないこと、余分なCast・更新登録がないことを確認する。Mutagenによる両PEXの読み込み、ZIPのCRC・SHA256・同梱パスを検査する。実機の入力・時計・描画を模擬実行の合格で保証するものではない。
+実際のPEXで、コントローラー4ケースと、入力からの準備完了・待機中・別種族・未設定SPEL・未設定Controller・Quest開始失敗・別対象の7ケースを模擬実行する。通知内容とTrace、モーダル表示がないこと、余分なCast・更新登録がないことを確認する。Mutagenによる両PEXの読み込み、ZIPのCRC・SHA256・同梱パスを検査する。公開済みの診断4の実際のPEXが新しいAPI検査で不合格になることを回帰テストにする。API資料のURL・固定コミット・ソースSHA256と宣言は `tests/fixtures/skyrim-vanilla-api.json` に記録する。実機の入力・時計・描画を模擬実行の合格で保証するものではない。
 
 通常ビルドと同じツール・Wine環境で実行する：
 
@@ -42,4 +46,4 @@
 python3 tools/build_diagnostic.py --dotnet /workspace/scratch/dotnet/dotnet --caprica /workspace/scratch/caprica-bin/Caprica.exe --wine /workspace/scratch/wine-root/usr/lib/wine/wine64
 ```
 
-ソースZIPには本体PSC・診断生成コード・検査用ホストを含む。再ビルドにはリポジトリの `dist/KhajiitKeenSenses-0.1.4-MO2.zip` も必要。公開済みZIPは上書きしない。Skyrimの `cqf` 利用確認のないdiagnostic1/2の手順は撤回済み。
+ソースZIPには本体PSC・診断生成コード・検査用ホストを含む。再ビルドにはリポジトリの `dist/KhajiitKeenSenses-0.1.4-MO2.zip` も必要。回帰テスト用に公開済み `dist/KhajiitKeenSenses-0.1.4-diagnostic4-MO2.zip` を残すが、ゲームには導入しない。公開済みZIPは上書きしない。Skyrimの `cqf` 利用確認のないdiagnostic1/2の手順は撤回済み。

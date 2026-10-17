@@ -101,8 +101,8 @@ class ScriptInstance:
                     method = a[1][1].lower()
                     if method == 'messagebox' and len(extra) == 1:
                         host.messages.append(get(extra[0]))
-                    elif method == 'notification' and len(extra) == 2:
-                        host.notifications.append((get(extra[0]), get(extra[1])))
+                    elif method == 'notification' and len(extra) == 1:
+                        host.notifications.append(get(extra[0]))
                     elif method == 'trace' and len(extra) == 2 and get(extra[1]) == 0:
                         host.traces.append(get(extra[0]))
                     else:
