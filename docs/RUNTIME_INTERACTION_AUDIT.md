@@ -85,11 +85,29 @@ bSpeedUpNativeCalls = false
 
 この確認で設定を変更する根拠は得られなかった。INIの新規作成・書き換え、他MODの無効化、新たなゲーム内テストは依頼しない。追加の診断ZIPや試験コマンドも作成していない。
 
+## 挙動の重なりから付ける調査の優先順位
+
+ユーザーから、各MODの概要を把握し、直接のレコード・スクリプト競合より前にゲーム内の挙動による影響を検討したかとの指摘を受けた。全MODの概要や導入版の実効設定を把握した状態ではなく、この観点の検証は不足していた。Native高速化の仮説が外れたことを、挙動による相互作用の調査全体が尽きたという意味にはしない。
+
+下表は**次に資料を調べる順序**であり、特定MODが原因であるという認定ではない。設定条件が重なって実際に動くことを確認できなければ、接点のある機能が存在するだけでは強い疑いとしない。
+
+| 優先する範囲 | 対象 | 根拠と、まだ説明できない点 |
+|---|---|---|
+| 音・別操作の同時発生について最初 | Complete Controller Setup / Gamepad++と、インタラクション系の組み合わせ | 同じ実機画像にLKSのINPUT・ACCEPTEDと別のインタラクション通知がある。公開Gamepad++は組み合わせからキーボード入力を生成する [G1]。入力の割り当てや別行動の発生が重なるかを優先する。SkyInteract / Remote Interactionsなどは通知元の候補だが、発生元を特定できていない。**主能力800のコンソールCastも不発なので、単なるキーの取り合いだけでは全症状を説明できない。** |
+| 詠唱状態に関する具体的な資料候補 | Dynamic Animation Casting - NG | Dynamic Animation Castingの公開実装は、設定されたアニメーションイベントと条件が一致すると、同じActorのkInstantキャスターから追加の魔法をCastする [A1][A2]。LKS発動中に別の詠唱が重なる設定があれば調査対象になる。ただし導入済みNG版との一致と、該当イベント・条件が有効かは未確認。公開コードは元のイベント処理も呼び、常に他の魔法を遮断する実装ではない。 |
+| 能力の装備・発動経路に関する資料候補 | STB Quick Hotkey Cast | STB側の現行公開説明では、STB Hotkey Systemが能力を装備し、Quick Hotkey Castが同じホットキー入力から発動も行う連携を説明している [H1]。能力の選択・装備・発動に接点はある。ただし使用中の版・設定でLKSにその経路が使われることは未確認。**通常のY＋RTがこの機能を通ると決めつけない。** 他製品の「以前の能力へ戻す」仕様をこのMODの仕様として流用しない。 |
+| 別行動が本当に始まっている場合の候補 | Immersive Interactions / Dynamic Looting and Harvesting Animationsなど | 行動に伴うアニメーションや操作制限があるか、LKSと同時に始まっているかを調べる範囲。今回の音や「近くに対象がない」という通知は、アニメーション・操作制限が実際に開始した証拠ではない。導入版の仕様・設定と因果関係は未確認。 |
+| 今回の説明として優先度を下げる機能 | Papyrus TweaksのNative高速化、ENBによる探知表示の全面的な不成立 | 提供INIは高速化false。同じ内部探知803はコンソールで表示できるため、表示が常に不可能という説明は成立しない。これらのMODの全機能が無関係という認定ではない。 |
+
+最も明確な差は、主能力800からの発動は失敗し、内部探知803への直接Castは成功すること。本MOD自身の二段階発動・適用タイミングの問題は、外部MODとの相互作用と並んで引き続き優先する。入力が届き、判定が受理された事実は、その後に別行動が走らないことや効果が適用されたことの証明にはならない。
+
+公開ソース・説明から機能上の接点は絞れたが、**ロード後不発の主因として特定の外部MODを強く疑うまでの証拠はない。** 対応する設定や動作条件を確認しないまま、列挙したMODを無効化したり、その前提で修正版を作ったりしない。今回、追加のゲーム内テストやファイル提出は依頼していない。
+
 ## 解決の見通し
 
 入力イベント到達、待機判定の受理、DetectionSpellがFECF5803であること、同じ内部魔法のコンソール経由の表示は実機で確認済み。PapyrusのCastが戻ったことは効果適用成功の証明ではない。入力・詠唱状態、呼び出し元やタイミング、他MODのフック、本MODの実装を含めた差は残っている。
 
-今回の一覧・DLL・INIの確認では、短期修正を約束できる原因は得られなかった。高速化の仮説も採用できないため、別の仮説を次々に実機で試す進め方には戻さない。現行版を完成・互換性検証済みとは扱わず、根拠のない修正と追加の手動試験をここで止める。今後の修正には、呼び出し後の効果適用を追える実行時の証拠など、具体的な根拠が必要。
+今回の一覧・DLL・INIの確認では、短期修正を約束できる原因は得られなかった。高速化の仮説も採用できないが、個々のMODの仕様とゲーム内挙動の資料調査は十分でなかった。追加の手動試験を保留したまま、上記のように機能と動作条件から候補を絞る作業は可能。現行版を完成・互換性検証済みとは扱わず、修正や実機試験には具体的な根拠を求める。
 
 ## 公開ソースの固定参照
 
@@ -105,3 +123,6 @@ bSpeedUpNativeCalls = false
 - [P6: Papyrus Tweaks 4.1.1の高速化フック導入条件](https://github.com/Nightfallstorm/PapyrusTweaks/blob/7e1379b2a19cf5d3ee26cef0e08e9d8ed92837d3/src/ExperimentalHooks.h#L234-L241)
 - [D1: DLLTweaksの独立した設定読み込み](https://github.com/digital-apple/DLLTweaks/blob/b9a80a94f06decec61d42f500594360ce248db17/source/Settings.cpp#L3-L21)
 - [D2: DLLTweaksの集中呪文コスト判定](https://github.com/digital-apple/DLLTweaks/blob/b9a80a94f06decec61d42f500594360ce248db17/source/Hooks.cpp#L64-L79)
+- [A1: Dynamic Animation Castingのイベント処理（導入済みNG版との一致は未確認）](https://github.com/LXIV-CXXVIII/DynamicAnimationCasting/blob/908ee3af87eba1a9cf5a9a59492512d414b32972/src/Project/Framework.cpp#L17-L35)
+- [A2: Dynamic Animation Castingの追加Cast](https://github.com/LXIV-CXXVIII/DynamicAnimationCasting/blob/908ee3af87eba1a9cf5a9a59492512d414b32972/src/Project/Casting/DynamicAnimationCasting.cpp#L102-L116)
+- [H1: STB Hotkey System側のQuick Hotkey Cast連携の説明（使用中の版との一致は未確認）](https://github.com/STB-Team/STB-Hotkey-System/blob/e1c6d54fa744f12b4df3e633b4d07b9daf3d874c/README.md)
