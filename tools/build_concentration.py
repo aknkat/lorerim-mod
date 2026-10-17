@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Build the script-free 0.2.0 spell without touching any historical archive.
+"""Build the script-free 0.2.1 spell without touching any historical archive.
 
 Only Python's standard library is needed. This writer follows xEdit's TES5
-SPEL/MGEF schema, not a patched or redistributed game record. Readback uses
+SPEL/MGEF/EFSH schema. The dedicated shader uses normalized standard settings
+from an xEdit export; no shared game record is overridden. Readback uses
 the separately maintained formats.py reader and verify_concentration.py.
 """
 import argparse
@@ -16,9 +17,12 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
 PLUGIN = "KhajiitKeenSensesConcentration.esp"
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 META = "KhajiitKeenSensesConcentration"
 SPELL_ID, EFFECT_ID = 0x01000800, 0x01000801
+SHADER_ID = 0x01000802
+COLOR = bytes((245, 127, 23, 0))  # #F57F17, fourth byte unused, not opacity.
+SHADER_BASELINE_SHA256 = "1c199d7ee9487267c1b8261f655878afc0168f760df662625a25cb0d537fce7c"
 
 
 def sub(tag, data):
@@ -46,10 +50,29 @@ def condition(function, p1=0, *, value=0, operator=0, run_on=0, or_next=False):
         (operator << 5) | int(or_next), value, function, p1, 0, run_on, 0, -1))
 
 
+def shader_payload():
+    baseline = json.loads((ROOT / "tools/data/life_detected_enemy.json").read_text())
+    original = bytes.fromhex(baseline["data_hex"])
+    if len(original) != 400 or hashlib.sha256(original).hexdigest() != SHADER_BASELINE_SHA256:
+        raise ValueError("Unexpected native shader baseline")
+    data = bytearray(original)
+    for offset in (188, 192, 196):
+        data[offset:offset + 4] = COLOR
+    # Direct particle RGB, not grayscale-to-palette mapping. Keep the native
+    # No Membrane Shader flag and ALL particle timing/alpha/depth settings.
+    flags = struct.unpack_from("<I", original, 384)[0]
+    struct.pack_into("<I", data, 384, flags & ~(1 << 16))
+    result = sub("EDID", ztext("LKSC_DetectionAmberShader"))
+    for tag in ("ICON", "ICO2", "NAM7", "NAM8", "NAM9"):
+        value = "" if tag == "NAM9" else baseline["textures"][tag]
+        result += sub(tag, ztext(value))
+    return result + sub("DATA", data)
+
+
 def make_plugin():
-    header = (sub("HEDR", struct.pack("<fII", 1.7, 4, 0x802))
+    header = (sub("HEDR", struct.pack("<fII", 1.7, 6, 0x803))
         + sub("CNAM", ztext("aknkat"))
-        + sub("SNAM", ztext("Keen Senses Concentration 0.2.0: 6m, base 25/s, no scripts; game validation pending."))
+        + sub("SNAM", ztext("Keen Senses Concentration 0.2.1: amber #F57F17, no hand casting art; game validation pending."))
         + sub("MAST", ztext("Skyrim.esm")) + sub("DATA", bytes(8)))
 
     data = bytearray(152)
@@ -58,11 +81,11 @@ def make_plugin():
     struct.pack_into("<I", data, 0, 0x04021412)
     struct.pack_into("<f", data, 4, 25)
     struct.pack_into("<ii", data, 12, 18, -1)  # Alteration; no resistance AV.
-    struct.pack_into("<I", data, 32, 0xDC209)  # Native red LifeDetectedEnemy.
+    struct.pack_into("<I", data, 32, SHADER_ID)  # Dedicated amber EFSH.
     struct.pack_into("<I", data, 44, 20)      # Feet, not magnitude/metres.
     struct.pack_into("<Ii", data, 64, 19, -1)  # Detect Life, ActorValue None.
     struct.pack_into("<IIi", data, 80, 2, 0, -1)  # Concentration, Self, AV None.
-    struct.pack_into("<I", data, 92, 0x2FB1C)  # DetectLifeFXHand01, reference only.
+    # Casting Art stays NULL: remove the hand glow, not casting animations.
     struct.pack_into("<f", data, 104, 0)      # No skill XP from this spell.
     struct.pack_into("<f", data, 112, 1)
     struct.pack_into("<I", data, 140, 2)      # Silent to AI, native Detect Life.
@@ -98,6 +121,7 @@ def make_plugin():
     spell += condition(69, 0x13745, value=1, run_on=1, or_next=True)
     spell += condition(69, 0x88845, value=1, run_on=1)
     return (record("TES4", 0, header, flags=0x280)
+        + group("EFSH", record("EFSH", SHADER_ID, shader_payload()))
         + group("MGEF", record("MGEF", EFFECT_ID, effect))
         + group("SPEL", record("SPEL", SPELL_ID, spell)))
 
@@ -105,13 +129,13 @@ def make_plugin():
 TEXT = {
     "English": {
         1: "Keen Senses: Detection",
-        2: "Detect living creatures within about 6 metres while casting. All targets appear red. Excludes corpses, undead and machines.",
+        2: "Detect living creatures within about 6 metres while casting. All targets share an amber glow. Excludes corpses, undead and machines.",
         3: "Keen Senses (Concentration)",
         4: "Khajiit player only. Detect nearby living creatures through walls while casting. Range: about 6 metres. Base cost: 25 Magicka per second before modifiers. No skill experience or cooldown.",
     },
     "Japanese": {
         1: "鋭敏な感覚：探知",
-        2: "詠唱中、半径約6mの生物を共通の赤色で探知する。死体・アンデッド・機械は対象外。",
+        2: "詠唱中、半径約6mの生物を共通の橙色で探知する。死体・アンデッド・機械は対象外。",
         3: "鋭敏な感覚（集中）",
         4: "カジートのプレイヤー専用。詠唱中、壁越しに半径約6mの生物を探知する。基礎消費は毎秒25マジカ（補正前）。スキル経験値・再使用待ちなし。",
     },
@@ -133,7 +157,8 @@ def make_manifest():
         "status": "structurally_verified_game_validation_pending",
         "master": "Skyrim.esm", "esl": True, "localized": True,
         "records": [{"id": "000800", "type": "SPEL", "editor_id": "LKSC_KeenSenses"},
-                    {"id": "000801", "type": "MGEF", "editor_id": "LKSC_DetectLivingEffect"}],
+                    {"id": "000801", "type": "MGEF", "editor_id": "LKSC_DetectLivingEffect"},
+                    {"id": "000802", "type": "EFSH", "editor_id": "LKSC_DetectionAmberShader"}],
         "overrides": 0, "scripts": 0, "quests": 0, "additional_skse_plugins": 0,
         "cast_type": "Concentration", "delivery": "Self", "equip": "EitherHand",
         "native_area_feet": 20, "distance_cap_game_units": 420,
@@ -144,19 +169,25 @@ def make_manifest():
         "caster": "player, normal Khajiit or vampire Khajiit; Target-context CTDA",
         "distribution": "manual player.addspell only",
         "exclusions": ["GetDead", "ActorTypeUndead", "IsUndead", "ActorTypeDwarven", "NoDetectLife"],
-        "shader": "Skyrim.esm:000DC209 LifeDetectedEnemy, same for all targets",
+        "shader": "local 000802 LKSC_DetectionAmberShader, same for all targets",
+        "detection_color": "#F57F17", "particle_color_rgb": [245, 127, 23],
+        "particle_color_mode": "direct RGB; grayscale color mapping off; palette path empty",
+        "shader_baseline": "Skyrim.esm:000DC209 LifeDetectedEnemy, normalized exported settings",
+        "shader_baseline_data_sha256": SHADER_BASELINE_SHA256,
+        "shader_non_color_settings": "unchanged: particle count, scale, timing, alpha, blending, Z test",
+        "hand_casting_art": None, "casting_animations": "unchanged",
+        "display_note": "#F57F17 is the source particle RGB; ENB, additive blending and alpha affect the final screen color.",
         "external_references": {
             "00000014": "PLYR PlayerRef", "00013745": "RACE KhajiitRace",
             "00088845": "RACE KhajiitRaceVampire", "00013796": "KYWD ActorTypeUndead",
             "0001397A": "KYWD ActorTypeDwarven", "000F82F4": "KYWD NoDetectLife",
-            "000DC209": "EFSH LifeDetectedEnemy", "00013F44": "EQUP EitherHand",
-            "00104F70": "STAT MAGInvDetectLife", "0002FB1C": "ARTO DetectLifeFXHand01",
+            "00013F44": "EQUP EitherHand", "00104F70": "STAT MAGInvDetectLife",
             "0003F37A": "SNDR MAGAlterationDrawSheatheLPMSD",
             "0007C71F": "SNDR MAGIllusionChargeSD",
             "00081189": "SNDR MAGAlterationDetectLifeCast2DLPM",
         },
         "schema": "TES5Edit Core/wbDefinitionsTES5.pas @ 9fb016884bec138ea6c7b872cec831537d464c3e",
-        "runtime_validation": "NOT RUN: Skyrim, full LoreRim profile, radius/filter contexts, real cost, skill XP, release and full-restart load",
+        "runtime_validation": "NOT RUN: Skyrim, full LoreRim profile, amber shader appearance, hand art removal, radius/filter contexts, real cost, skill XP, release and full-restart load",
         "legacy_save_migration": "No migration or removal of old KhajiitKeenSenses script/quest state.",
         "languages": ["English", "Japanese"],
     }
@@ -220,7 +251,7 @@ def main():
     parser.add_argument("--package-only", action="store_true")
     args = parser.parse_args()
     from verify_concentration import verify_package, verify_zip
-    stage = ROOT / "build/concentration-0.2.0"
+    stage = ROOT / "build" / f"concentration-{VERSION}"
     stage.parent.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="lksc-", dir=stage.parent) as temp:
         package = Path(temp)
@@ -243,7 +274,8 @@ def main():
         verify_zip(candidate)
     source_names = ["LICENSE", "docs/CONCENTRATION.md", "docs/CONCENTRATION_BUILD.md",
         "tools/build_concentration.py", "tools/verify_concentration.py", "tools/formats.py",
-        "tools/verify_concentration_third_party.cjs", "tests/test_concentration.py"]
+        "tools/verify_concentration_third_party.cjs", "tools/data/life_detected_enemy.json",
+        "tests/test_concentration.py", "tests/fixtures/v020-concentration.json"]
     source = {name: (ROOT / name).read_bytes() for name in source_names}
     source["README.md"] = source["docs/CONCENTRATION_BUILD.md"]
     source["SHA256SUMS.txt"] = "".join(f"{hashlib.sha256(b).hexdigest()}  {n}\n"

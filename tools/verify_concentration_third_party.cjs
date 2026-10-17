@@ -20,7 +20,7 @@ async function main() {
   let roundtripped = 0;
   try {
     const roots = await offsets(fd, 0);
-    assert.deepEqual(roots.map(([, type]) => type), ['TES4', 'GRUP', 'GRUP']);
+    assert.deepEqual(roots.map(([, type]) => type), ['TES4', 'GRUP', 'GRUP', 'GRUP']);
     async function readRecord(offset, expected) {
       const raw = await bufferAt(fd, offset);
       assert.equal(raw.toString('ascii', 0, 4), expected);
@@ -39,10 +39,12 @@ async function main() {
       assert.equal(children.length, 2);
       await readRecord(children[1][0], children[1][1]);
     }
-    assert.deepEqual(decoded.map(r => r.recordType), ['TES4', 'MGEF', 'SPEL']);
-    const spell = decoded[2], effect = decoded[1];
+    assert.deepEqual(decoded.map(r => r.recordType), ['TES4', 'EFSH', 'MGEF', 'SPEL']);
+    const spell = decoded[3], effect = decoded[2], shader = decoded[1];
     assert.equal(Number(spell.id), 0x01000800);
     assert.equal(Number(effect.id), 0x01000801);
+    assert.equal(Number(shader.id), 0x01000802);
+    assert.equal(shader.subRecords.find(r => r.type === 'DATA').size, 400);
     assert.equal(spell.subRecords.filter(r => r.type === 'CTDA').length, 3);
     assert.equal(effect.subRecords.filter(r => r.type === 'CTDA').length, 6);
     assert.ok(!decoded.some(r => r.subRecords.some(s => s.type === 'VMAD')));

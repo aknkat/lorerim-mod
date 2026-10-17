@@ -25,18 +25,19 @@ def require(value, message):
 
 def verify_plugin(path):
     records, groups = read_plugin(path)
-    require(len(records) == 3 and records[0]["type"] == "TES4", "Expected header + 2 new records")
+    require(len(records) == 4 and records[0]["type"] == "TES4", "Expected header + 3 new records")
     header = records[0]
     require(header["id"] == 0 and header["flags"] == 0x280, "Expected localized ESL ESP")
     require(fields(header, "MAST") == [b"Skyrim.esm\0"], "Skyrim.esm must be the sole master")
     version, count, next_id = struct.unpack("<fII", field(header, "HEDR"))
-    require(abs(version - 1.7) < 1e-6 and count == 4 and next_id == 0x802, "Invalid HEDR counts")
-    require(sorted(groups) == [("MGEF", 0), ("SPEL", 0)], "Unexpected group/quest/distribution")
+    require(abs(version - 1.7) < 1e-6 and count == 6 and next_id == 0x803, "Invalid HEDR counts")
+    require(sorted(groups) == [("EFSH", 0), ("MGEF", 0), ("SPEL", 0)], "Unexpected group/quest/distribution")
     forms = {r["id"]: r for r in records[1:]}
-    require(set(forms) == {0x01000800, 0x01000801}, "Existing-record override or unexpected form")
+    require(set(forms) == {0x01000800, 0x01000801, 0x01000802}, "Existing-record override or unexpected form")
     require(all(r["flags"] == 0 and r["version"] == 44 for r in forms.values()), "Record flags/version")
     require(all(not fields(r, "VMAD") for r in records), "VMAD/scripts must be absent")
     spell, effect = forms[0x01000800], forms[0x01000801]
+    shader = forms[0x01000802]
     require(spell["type"] == "SPEL" and effect["type"] == "MGEF", "Wrong local record types")
     require(field(spell, "EDID") == b"LKSC_KeenSenses\0", "Unexpected spell editor ID")
     require(field(effect, "EDID") == b"LKSC_DetectLivingEffect\0", "Unexpected effect editor ID")
@@ -56,16 +57,16 @@ def verify_plugin(path):
     require(struct.unpack_from("<I", data)[0] == 0x04021412, "Unsafe/wrong effect flags")
     require(struct.unpack_from("<f", data, 4)[0] == 25, "Unexpected effect base cost")
     require(struct.unpack_from("<ii", data, 12) == (18, -1), "Wrong school or resistance AV")
-    require(struct.unpack_from("<I", data, 32)[0] == 0xDC209, "Must use the common red shader")
+    require(struct.unpack_from("<I", data, 32)[0] == 0x01000802, "Must use the dedicated local shader")
     require(struct.unpack_from("<II", data, 40) == (0, 20), "Wrong minimum skill or spellmaking area")
     require(struct.unpack_from("<Ii", data, 64) == (19, -1), "Must be native Detect Life / AV None")
     require(struct.unpack_from("<IIi", data, 80) == (2, 0, -1), "Inconsistent MGEF Concentration/Self")
-    require(struct.unpack_from("<I", data, 92)[0] == 0x2FB1C, "Wrong hand casting art")
+    require(struct.unpack_from("<I", data, 92)[0] == 0, "Hand casting art must be NULL")
     require(struct.unpack_from("<f", data, 104)[0] == 0, "Skill XP must be zero")
     require(struct.unpack_from("<f", data, 112)[0] == 1, "Unexpected dual cast scale")
     require(struct.unpack_from("<I", data, 140)[0] == 2, "Unexpected casting sound level")
-    # All optional form-link slots except shader/art must remain empty.
-    for offset in [8, 24, 36, 72, 76, 96, 100, 108, 116, 120, 124, 128, 132, 136]:
+    # All optional form-link slots except the private hit shader stay empty.
+    for offset in [8, 24, 36, 72, 76, 92, 96, 100, 108, 116, 120, 124, 128, 132, 136]:
         require(data[offset:offset + 4] == bytes(4), f"Unexpected linked record at MGEF offset {offset}")
     require([struct.unpack("<II", b) for b in fields(effect, "SNDD")] ==
         [(0, 0x3F37A), (1, 0x7C71F), (2, 0x81189)], "Wrong native sounds")
@@ -79,9 +80,31 @@ def verify_plugin(path):
         [(136, 0x14, 1, False), (69, 0x13745, 1, True), (69, 0x88845, 1, False)], "Wrong caster guards")
     require(all(c["run_on"] == 1 and c["operator"] == 0 for c in caster), "Caster must be Target-context")
     require(all(c["p2"] == 0 and c["reference"] == 0 and c["p3"] == -1 for c in caster + target), "Unexpected condition payload")
-    return {"records": 2, "overrides": 0, "master": "Skyrim.esm", "scripts": 0,
+    verify_shader(shader)
+    return {"records": 3, "overrides": 0, "master": "Skyrim.esm", "scripts": 0,
         "base_cost_per_second": 25, "area_feet": 20, "distance_cap_units": 420,
-        "skill_usage_multiplier": 0, "scope": "structural checks only; Skyrim execution not tested"}
+        "skill_usage_multiplier": 0, "detection_color": "#F57F17", "casting_art": None,
+        "scope": "structural checks only; Skyrim execution not tested"}
+
+
+def verify_shader(shader):
+    require(shader["type"] == "EFSH", "Wrong local shader type")
+    require([n for n, _ in shader["fields"]] == ["EDID", "ICON", "ICO2", "NAM7", "NAM8", "NAM9", "DATA"],
+        "Unexpected shader fields")
+    require(field(shader, "EDID") == b"LKSC_DetectionAmberShader\0", "Wrong shader editor ID")
+    require(field(shader, "ICO2") == b"Effects\\SmallGlowSwirls.dds\0", "Unexpected particle texture")
+    require(all(field(shader, t) == b"\0" for t in ["ICON", "NAM7", "NAM8", "NAM9"]), "Unused shader texture/palette must be empty")
+    data = field(shader, "DATA")
+    require(len(data) == 400, "Invalid complete Skyrim EFSH DATA length")
+    require(all(data[o:o+4] == bytes([245, 127, 23, 0]) for o in [188, 192, 196]), "Shader RGB must be #F57F17")
+    require(struct.unpack_from("<I", data, 384)[0] == 1, "Wrong shader flags: require direct RGB, particles on, membrane off")
+    baseline_path = Path(__file__).resolve().parent / "data/life_detected_enemy.json"
+    baseline = bytes.fromhex(json.loads(baseline_path.read_text())["data_hex"])
+    require(hashlib.sha256(baseline).hexdigest() == "1c199d7ee9487267c1b8261f655878afc0168f760df662625a25cb0d537fce7c",
+        "Unexpected standard shader baseline")
+    permitted = set(range(188, 200)) | set(range(384, 388))
+    require(all(a == b for i, (a, b) in enumerate(zip(data, baseline)) if i not in permitted),
+        "Shader changes non-color particle/alpha/blending/depth settings")
 
 
 def verify_package(path):
@@ -101,10 +124,11 @@ def verify_package(path):
         require(all(isinstance(v, str) and v for v in list(st.values()) + list(dl.values())), "Empty/invalid localization")
         require("25" in dl[4] and "6" in dl[4], "Wrong localized specification")
     manifest = json.loads((path / META / "build-manifest.json").read_text(encoding="utf-8"))
-    require(manifest["plugin"] == PLUGIN and manifest["version"] == "0.2.0", "Wrong package identity")
+    require(manifest["plugin"] == PLUGIN and manifest["version"] == "0.2.1", "Wrong package identity")
     require(manifest["overrides"] == manifest["scripts"] == manifest["quests"] == manifest["additional_skse_plugins"] == 0,
         "Incorrect runtime dependency claims")
     require(manifest["status"] == "structurally_verified_game_validation_pending", "Unsupported runtime validation claim")
+    require(manifest["detection_color"] == "#F57F17" and manifest["hand_casting_art"] is None, "Wrong appearance metadata")
     checksum = META + "/SHA256SUMS.txt"
     checked = set()
     for line in (path / checksum).read_text().splitlines():

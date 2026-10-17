@@ -1,5 +1,6 @@
 """Artifact requirements and rejection tests, not Skyrim engine emulation."""
 import hashlib
+import json
 from pathlib import Path
 import struct
 import sys
@@ -56,7 +57,52 @@ class ConcentrationTests(unittest.TestCase):
 
     def test_real_output_satisfies_entire_structural_contract(self):
         result = verify_package(self.package)
-        self.assertEqual((result["records"], result["overrides"], result["scripts"]), (2, 0, 0))
+        self.assertEqual((result["records"], result["overrides"], result["scripts"]), (3, 0, 0))
+
+    def test_published_020_spell_is_unchanged_and_effect_changes_only_two_links(self):
+        baseline = json.loads((ROOT / "tests/fixtures/v020-concentration.json").read_text())
+        old_spell = [(n, bytes.fromhex(d)) for n, d in baseline["records"]["SPEL"]]
+        old_effect = [(n, bytes.fromhex(d)) for n, d in baseline["records"]["MGEF"]]
+        self.assertEqual(self.spell["fields"], old_spell)
+        expected = []
+        for name, raw in old_effect:
+            if name == "DATA":
+                data = bytearray(raw)
+                struct.pack_into("<I", data, 32, 0x01000802)
+                struct.pack_into("<I", data, 92, 0)
+                raw = bytes(data)
+            expected.append((name, raw))
+        self.assertEqual(self.effect["fields"], expected)
+
+    def test_private_shader_direct_color_and_native_particle_behavior(self):
+        records, _ = read_plugin(self.plugin)
+        shader = next(r for r in records if r["type"] == "EFSH")
+        data = field(shader, "DATA")
+        self.assertEqual([tuple(data[o:o+3]) for o in [188, 192, 196]], [(245, 127, 23)] * 3)
+        self.assertEqual(struct.unpack_from("<I", data, 384)[0], 1)
+        self.assertEqual(field(shader, "NAM9"), b"\0")
+        # Real native behavior requirements independent of the writer:
+        # particles must remain visible through walls, with the original count,
+        # lifetime, alpha curve and scale curve instead of an unrelated fire FX.
+        self.assertEqual(struct.unpack_from("<I", data, 104)[0], 8)
+        self.assertEqual(struct.unpack_from("<ff", data, 124), (300, 300))
+        self.assertAlmostEqual(struct.unpack_from("<f", data, 132)[0], 0.4)
+        self.assertEqual(struct.unpack_from("<ff", data, 172), (10, 36))
+        self.assertEqual(struct.unpack_from("<fff", data, 200), (0, 1, 1))
+
+    def test_wrong_shader_color_palette_mode_and_depth_changes_are_rejected(self):
+        original = self.plugin.read_bytes()
+        marker = b"DATA" + struct.pack("<H", 400)
+        self.assertEqual(original.count(marker), 1)
+        start = original.index(marker) + 6
+        for offset, value in [(188, bytes([0, 0, 255, 0])), (384, struct.pack("<I", 0x10001)),
+                              (104, struct.pack("<I", 3)), (132, struct.pack("<f", 99))]:
+            with self.subTest(offset=offset):
+                changed = bytearray(original)
+                changed[start + offset:start + offset + len(value)] = value
+                self.plugin.write_bytes(changed)
+                with self.assertRaises(ValueError):
+                    verify_plugin(self.plugin)
 
     def test_caster_guards_do_not_filter_the_detected_npc_race(self):
         gates = conditions(self.spell)

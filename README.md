@@ -1,10 +1,12 @@
 # LoreRim 5：鋭敏な感覚 / Khajiit Keen Senses
 
-**新しい制作物：鋭敏な感覚（集中）0.2.0。半径約6m・基礎消費25マジカ／秒・使用によるスキル経験値なしの、独立した通常呪文です。** 新規SPELとMGEFだけで構成し、既存レコードの上書き、独自スクリプト、クエスト、DLL、追加SKSEプラグインはありません。構造検査済み・ゲーム内未検証です。
+**新しい制作物：鋭敏な感覚（集中）0.2.1。探知色を#F57F17にし、手元の光・粒子を外した版です。** 半径約6m・基礎消費25マジカ／秒・使用によるスキル経験値なしは維持します。新規SPEL・MGEF・専用EFSHの3件で構成し、既存レコードの上書き、独自スクリプト、クエスト、DLL、追加SKSEプラグインはありません。構造検査済み・ゲーム内未検証です。
 
-[集中呪文版のMO2導入ZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSensesConcentration-0.2.0-MO2.zip) / [制作ソースZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSensesConcentration-0.2.0-source.zip) / [導入・解除・検証状況のREADME](docs/CONCENTRATION.md) / [ビルド方法](docs/CONCENTRATION_BUILD.md)
+[集中呪文版のMO2導入ZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSensesConcentration-0.2.1-MO2.zip) / [制作ソースZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSensesConcentration-0.2.1-source.zip) / [導入・解除・検証状況のREADME](docs/CONCENTRATION.md) / [ビルド方法](docs/CONCENTRATION_BUILD.md)
 
 新ESPは **`KhajiitKeenSensesConcentration.esp`**。旧特殊能力版と別MODとして導入し、「鋭敏な感覚（集中）」を手に装備して通常の魔法として使用します。独自の60秒制限はありません。変性に分類し、経験値倍率0・半減Perk未設定ですが、他の方法で育てた変性や一般の消費補正の影響は受け得ます。25／秒は補正前の値です。
+
+集中版0.2.0からは、ゲームを完全終了してMO2でReplace（置き換え）します。同じESP名と呪文IDを維持し、魔法の取得し直しは不要です。手元の発光だけを外し、腕の装備・詠唱動作は変えません。指定色は入力RGBであり、ENB・背景・透明度・加算合成で実際の見え方は変わります。0.2.0を含む既存の配布ZIPは変更していません。
 
 旧版のセーブ情報の移行・削除は行いません。旧版を使っている場合の扱いと、新ESPの現在のIndexから `player.addspell` する方法は上記READMEに記載しています。過去のIndexを新ESPへ転用しません。
 
