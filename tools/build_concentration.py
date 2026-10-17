@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the script-free 0.2.1 spell without touching any historical archive.
+"""Build the script-free 0.2.2 spell without touching any historical archive.
 
 Only Python's standard library is needed. This writer follows xEdit's TES5
 SPEL/MGEF/EFSH schema. The dedicated shader uses normalized standard settings
@@ -17,11 +17,11 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
 PLUGIN = "KhajiitKeenSensesConcentration.esp"
-VERSION = "0.2.1"
+VERSION = "0.2.2"
 META = "KhajiitKeenSensesConcentration"
 SPELL_ID, EFFECT_ID = 0x01000800, 0x01000801
 SHADER_ID = 0x01000802
-COLOR = bytes((245, 127, 23, 0))  # #F57F17, fourth byte unused, not opacity.
+COLOR = bytes((242, 198, 184, 0))  # #F2C6B8, fourth byte unused, not opacity.
 SHADER_BASELINE_SHA256 = "1c199d7ee9487267c1b8261f655878afc0168f760df662625a25cb0d537fce7c"
 
 
@@ -72,7 +72,7 @@ def shader_payload():
 def make_plugin():
     header = (sub("HEDR", struct.pack("<fII", 1.7, 6, 0x803))
         + sub("CNAM", ztext("aknkat"))
-        + sub("SNAM", ztext("Keen Senses Concentration 0.2.1: amber #F57F17, no hand casting art; game validation pending."))
+        + sub("SNAM", ztext("Keen Senses Concentration 0.2.2: light peach #F2C6B8, no hand casting art; game validation pending."))
         + sub("MAST", ztext("Skyrim.esm")) + sub("DATA", bytes(8)))
 
     data = bytearray(152)
@@ -81,7 +81,7 @@ def make_plugin():
     struct.pack_into("<I", data, 0, 0x04021412)
     struct.pack_into("<f", data, 4, 25)
     struct.pack_into("<ii", data, 12, 18, -1)  # Alteration; no resistance AV.
-    struct.pack_into("<I", data, 32, SHADER_ID)  # Dedicated amber EFSH.
+    struct.pack_into("<I", data, 32, SHADER_ID)  # Dedicated private-color EFSH.
     struct.pack_into("<I", data, 44, 20)      # Feet, not magnitude/metres.
     struct.pack_into("<Ii", data, 64, 19, -1)  # Detect Life, ActorValue None.
     struct.pack_into("<IIi", data, 80, 2, 0, -1)  # Concentration, Self, AV None.
@@ -129,13 +129,13 @@ def make_plugin():
 TEXT = {
     "English": {
         1: "Keen Senses: Detection",
-        2: "Detect living creatures within about 6 metres while casting. All targets share an amber glow. Excludes corpses, undead and machines.",
+        2: "Detect living creatures within about 6 metres while casting. All targets share a light peach glow. Excludes corpses, undead and machines.",
         3: "Keen Senses (Concentration)",
         4: "Khajiit player only. Detect nearby living creatures through walls while casting. Range: about 6 metres. Base cost: 25 Magicka per second before modifiers. No skill experience or cooldown.",
     },
     "Japanese": {
         1: "鋭敏な感覚：探知",
-        2: "詠唱中、半径約6mの生物を共通の橙色で探知する。死体・アンデッド・機械は対象外。",
+        2: "詠唱中、半径約6mの生物を共通の明るいピーチ色で探知する。死体・アンデッド・機械は対象外。",
         3: "鋭敏な感覚（集中）",
         4: "カジートのプレイヤー専用。詠唱中、壁越しに半径約6mの生物を探知する。基礎消費は毎秒25マジカ（補正前）。スキル経験値・再使用待ちなし。",
     },
@@ -170,13 +170,13 @@ def make_manifest():
         "distribution": "manual player.addspell only",
         "exclusions": ["GetDead", "ActorTypeUndead", "IsUndead", "ActorTypeDwarven", "NoDetectLife"],
         "shader": "local 000802 LKSC_DetectionAmberShader, same for all targets",
-        "detection_color": "#F57F17", "particle_color_rgb": [245, 127, 23],
+        "detection_color": "#F2C6B8", "particle_color_rgb": [242, 198, 184],
         "particle_color_mode": "direct RGB; grayscale color mapping off; palette path empty",
         "shader_baseline": "Skyrim.esm:000DC209 LifeDetectedEnemy, normalized exported settings",
         "shader_baseline_data_sha256": SHADER_BASELINE_SHA256,
         "shader_non_color_settings": "unchanged: particle count, scale, timing, alpha, blending, Z test",
         "hand_casting_art": None, "casting_animations": "unchanged",
-        "display_note": "#F57F17 is the source particle RGB; ENB, additive blending and alpha affect the final screen color.",
+        "display_note": "#F2C6B8 is the source particle RGB; ENB, additive blending and alpha affect the final screen color.",
         "external_references": {
             "00000014": "PLYR PlayerRef", "00013745": "RACE KhajiitRace",
             "00088845": "RACE KhajiitRaceVampire", "00013796": "KYWD ActorTypeUndead",
@@ -187,7 +187,7 @@ def make_manifest():
             "00081189": "SNDR MAGAlterationDetectLifeCast2DLPM",
         },
         "schema": "TES5Edit Core/wbDefinitionsTES5.pas @ 9fb016884bec138ea6c7b872cec831537d464c3e",
-        "runtime_validation": "NOT RUN: Skyrim, full LoreRim profile, amber shader appearance, hand art removal, radius/filter contexts, real cost, skill XP, release and full-restart load",
+        "runtime_validation": "NOT RUN: Skyrim, full LoreRim profile, light peach shader appearance, hand art removal, radius/filter contexts, real cost, skill XP, release and full-restart load",
         "legacy_save_migration": "No migration or removal of old KhajiitKeenSenses script/quest state.",
         "languages": ["English", "Japanese"],
     }
