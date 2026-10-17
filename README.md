@@ -6,7 +6,7 @@
 
 **現在の診断：** 診断4は通知関数へ余分な引数を渡していたため撤回します。[診断用追加MOD diagnostic5](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSenses-0.1.4-diagnostic5-MO2.zip) で修正し、公開されたSkyrimのAPI宣言と実際のPEXの引数を照合します。コマンド入力不要で、通常のY＋RTから通知で起動・受理を表示します。本体のロード後の不発は未解決です。[診断手順](docs/RELOAD_DIAGNOSTIC.md) と [診断用ソースZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSenses-0.1.4-diagnostic5-source.zip)。
 
-diagnostic3では、数値画面まで到達し、保存期限は満了、`TryActivate accepted: TRUE` を実機画像で確認できました。発光は見逃しており未確認です。診断4に見つかったAPIの誤りは、こちらの制作・検査の不備です。**診断5ではINPUTとACCEPTEDが出ても光らず、その状態で内部探知803を直接Castすると光ったと確認できました。** 入力と待機判定・探知表示は動くため、保存された魔法の参照とスクリプトからの適用を調べます。現在のMO2 Indexは **FE:CF5** とユーザーが表示を確認しました。診断MODが無効だった試行は診断5の結果には含めません。
+diagnostic3では、数値画面まで到達し、保存期限は満了、`TryActivate accepted: TRUE` を実機画像で確認できました。発光は見逃しており未確認です。診断4に見つかったAPIの誤りは、こちらの制作・検査の不備です。**診断5ではINPUTとACCEPTEDが出ても光らず、その状態で内部探知803を直接Castすると光ったと確認できました。** 現在のIndexは **FE:CF5**、SQVで表示されたDetectionSpellも正しい **FECF5803** でした。参照違いを原因とは扱いません。他MODの実行時処理を含む呼び出し経路の差を調べるため、試験版の追加を保留し、実際の有効MODと設定を照合します。診断MODが無効だった試行は診断5の結果には含めません。
 
 カジートのプレイヤー向けに、半径約8mの生物を2秒間探知する特殊能力（Lesser Power）を追加します。再使用は60秒後、マジカ・スタミナ消費は0。既存のナイトアイ、種族、Perk、NPCは変更しません。
 
