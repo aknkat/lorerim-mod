@@ -74,7 +74,7 @@ class ConcentrationTests(unittest.TestCase):
         result = verify_package(self.package)
         self.assertEqual((result["records"], result["overrides"], result["scripts"]), (3, 0, 0))
 
-    def test_published_023_only_approved_balance_and_condition_fields_change(self):
+    def test_published_023_only_approved_balance_condition_and_color_fields_change(self):
         baseline = json.loads((ROOT / "tests/fixtures/v023-concentration.json").read_text())
         old_spell = [(n, bytes.fromhex(d)) for n, d in baseline["records"]["SPEL"]]
         old_effect = [(n, bytes.fromhex(d)) for n, d in baseline["records"]["MGEF"]]
@@ -99,13 +99,22 @@ class ConcentrationTests(unittest.TestCase):
         self.assertEqual([(n, b) for n, b in self.effect["fields"] if n != "CTDA"], expected)
         records, _ = read_plugin(self.plugin)
         shader = next(r for r in records if r["type"] == "EFSH")
-        self.assertEqual(shader["fields"], [(n, bytes.fromhex(d)) for n, d in baseline["records"]["EFSH"]])
+        expected_shader = []
+        for name, raw in baseline["records"]["EFSH"]:
+            raw = bytes.fromhex(raw)
+            if name == "DATA":
+                data = bytearray(raw)
+                for offset in (188, 192, 196):
+                    data[offset:offset+4] = bytes((224, 160, 96, 0))
+                raw = bytes(data)
+            expected_shader.append((name, raw))
+        self.assertEqual(shader["fields"], expected_shader)
 
     def test_private_shader_direct_color_and_native_particle_behavior(self):
         records, _ = read_plugin(self.plugin)
         shader = next(r for r in records if r["type"] == "EFSH")
         data = field(shader, "DATA")
-        self.assertEqual([tuple(data[o:o+3]) for o in [188, 192, 196]], [(224, 200, 184)] * 3)
+        self.assertEqual([tuple(data[o:o+3]) for o in [188, 192, 196]], [(224, 160, 96)] * 3)
         self.assertEqual(struct.unpack_from("<I", data, 384)[0], 1)
         self.assertEqual(field(shader, "NAM9"), b"\0")
         # Real native behavior requirements independent of the writer:
