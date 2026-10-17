@@ -51,6 +51,8 @@ SQVで参照が正しいと確認された後、ユーザーから他MODの挙�
 
 案内したMODフォルダーにINIはなく、PapyrusTweaks.dll、DLLTweaks.ini、DLLTweaks.dllが提供された。実行せずに静的確認した結果、PE版情報はそれぞれ4.1.1.0と1.2.2.0。DLLTweaks.iniは移動速度・吸収上限・集中呪文などの別設定で、Papyrusの高速化設定ではなかった。Papyrus Tweaks 4.1.1の公開ソースはData/SKSE/Plugins/PapyrusTweaks.iniを読み書きし、添付DLLにも同じパスが含まれる。前のディレクトリ案内は生成先の案内が抜けていたため、次の候補をMO2のoverwrite/SKSE/Plugins/PapyrusTweaks.iniへ限定する。実効INIの値・DLLのロード成否・不発の根本原因は未確認。資料を追加しただけで、LKSのコードや配布ZIPは変更していない。
 
+その後ユーザーが `mods/LoreRim - MCM and INI Settings/SKSE/Plugins/PapyrusTweaks.ini` を発見して提供した。設定用MODは有効で、先に案内した両MODより高い優先順位にある。INIのNative高速化はfalse、Castも標準除外リストに含まれていた。この設定を読む場合、4.1.1の高速化フックを導入する分岐には入らない。高速化が不発を起こすという仮説は採用できず、設定変更や新しい試験版・手動テストの根拠は得られなかった。実際のDLLロード状態や効果適用後のエンジン処理を確認したものではなく、不発は未解決のまま。今回限定した調査を完了し、根拠のない修正・追加試験は止める。
+
 ## v0.1.4の変更と検査
 
 解除イベントが届かなければフラグが永久に残る構成をやめ、入力時に標準プレイ時計と保存した期限を比較する。[変更の詳細](RELOAD_FIX_0.1.4.md)。旧版フラグは判定に使わない。新しい更新登録・Wait・Alias・ロード時の装備変更はない。

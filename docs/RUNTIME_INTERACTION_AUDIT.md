@@ -60,36 +60,36 @@ DLLTweaks.dllのINIパスは別の `Data\SKSE\Plugins\DLLTweaks.ini`。提供さ
 
 DLLTweaks.iniはPapyrusTweaks.iniの代わりにならない。DLL Tweaksという名前や優先順位だけで、Papyrus Tweaksの高速化設定を上書きしているとは扱わない。
 
-## 次に必要な資料を1ファイルへ限定
+## INIの保存先と確認結果
 
-前のディレクトリ案内はMODフォルダーだけで、自動生成ファイルの保存先の案内が抜けていた。MO2で新規生成されたファイルは通常Overwriteへ送られるため、次の候補だけを確認する。実際のインストール先の絶対パスは取得していない。
+前のディレクトリ案内は2つのMODフォルダーだけで、設定用MODや自動生成ファイルの保存先を特定していなかった。Overwriteも次の候補として記録したが、そこに実在するという確認ではなかった。**その後ユーザーが、別の設定用MOD内で実ファイルを見つけて提供した。** 現在の確認済みの所在は次の相対パス。
 
 ```text
-<LoreRimのインストール先>\overwrite\SKSE\Plugins\PapyrusTweaks.ini
+mods\LoreRim - MCM and INI Settings\SKSE\Plugins\PapyrusTweaks.ini
 ```
 
-これは生成先の候補であり、この環境に実在するとの確認ではない。MO2で出力先を変更していれば別の場所になる。仮想Dataタブの `SKSE/Plugins/PapyrusTweaks.ini` が見つかる場合は、その提供元が実際の確認対象になる。INIを新規作成したり、探すためにゲームを起動したりする必要はない。この候補にもなければ、未取得として記録し、さらに候補ディレクトリや試験版を追加し続けない。
+このMODはmodlist 147行で有効になっており、DLL Tweaks（424行）とPapyrus Tweaks NG（4019行）より優先される。提供されたINIは5666バイト・87行、SHA256は `efd25db82b03b91745eb6f48106e465fbda92f1412e728bc814ebc25115511f5`。原本は公開リポジトリへ転載しない。
 
-4.1.1の公開ソースでも次の設定を読む [P4]。
+設定本文の63・68・75行と4.1.1の公開実装を照合した。
 
 ```ini
 [Experimental]
-bSpeedUpNativeCalls=...
-sScriptClassExclusions=...
-sScriptMethodPrefixesToExclude=...
+bSpeedUpNativeCalls = false
 ```
 
-古い版では `bRunScriptsOnMainThreadOnly`、`sMainThreadClassesToExclude`、`sMainThreadMethodsToExclude` などの旧名があるため、値を抜粋せずファイル全体で版差も確認する。標準値と異なるからといって設定を直ちに変更しない。
+- `sScriptClassExclusions` はUI、Debug、Utility、Questなどを含む標準のリスト。
+- `sScriptMethodPrefixesToExclude` にはCast、RemoteCast、DoCombatSpellApply、Register、Tryなどが残っている。高速化が有効だった場合にもCastは除外される内容。
+- メモリー制限無視と破損セーブ警告の回避はfalse。VMの `iMaxOpsPerFrame` は1000。この値がNative高速化を有効にする実装ではなく、値だけで不発の原因とはしない。
 
-高速化が有効でCastの除外も外れていれば、今回の呼び出し経路の差に関係し得る具体的な設定として調べる。無効またはCastが除外されていれば、その結果に応じてこの直接的な説明の優先度を下げる。どちらの結果も単独で原因確定にはならない。グローバル設定を変えて他MODへ影響を広げる修正は、この確認では行わない。
+**このINIを読む場合、4.1.1のNative高速化フックを導入する分岐には入らない [P6]。** 今回調べた「Papyrus TweaksのNative高速化がCastを壊す」という仮説は、この設定では支持されない。Papyrus Tweaks全機能や他MODすべての無関係を証明した意味ではなく、実ロード時ログによる設定確認でもない。
 
-これはゲームを起動しないファイル確認であり、新たなセーブ・ロード試験ではない。追加の診断ZIPや試験コマンドは作成していない。
+この確認で設定を変更する根拠は得られなかった。INIの新規作成・書き換え、他MODの無効化、新たなゲーム内テストは依頼しない。追加の診断ZIPや試験コマンドも作成していない。
 
 ## 解決の見通し
 
 入力イベント到達、待機判定の受理、DetectionSpellがFECF5803であること、同じ内部魔法のコンソール経由の表示は実機で確認済み。PapyrusのCastが戻ったことは効果適用成功の証明ではない。入力・詠唱状態、呼び出し元やタイミング、他MODのフック、本MODの実装を含めた差は残っている。
 
-今回の3ファイルから短期修正を約束できる原因は得られていない。上記INI確認にも根拠がなければ、別の仮説を次々に実機で試す進め方には戻さない。現行版を完成・互換性検証済みとは扱わず、追加対応の範囲を再評価する。
+今回の一覧・DLL・INIの確認では、短期修正を約束できる原因は得られなかった。高速化の仮説も採用できないため、別の仮説を次々に実機で試す進め方には戻さない。現行版を完成・互換性検証済みとは扱わず、根拠のない修正と追加の手動試験をここで止める。今後の修正には、呼び出し後の効果適用を追える実行時の証拠など、具体的な根拠が必要。
 
 ## 公開ソースの固定参照
 
@@ -102,5 +102,6 @@ sScriptMethodPrefixesToExclude=...
 - [T2: powerofthree's Tweaksのロード時の魔法再適用](https://github.com/powerof3/po3-Tweaks/blob/47e8b72118b2e666af3c03fc3baaec8f73972f94/src/Fixes/ReapplySpellsOnLoad.cpp#L12-L19)
 - [P4: Papyrus Tweaks 4.1.1のINI読み書き](https://github.com/Nightfallstorm/PapyrusTweaks/blob/7e1379b2a19cf5d3ee26cef0e08e9d8ed92837d3/src/Settings.cpp#L9-L34)
 - [P5: Papyrus Tweaks 4.1.1の高速化初期値とCast除外](https://github.com/Nightfallstorm/PapyrusTweaks/blob/7e1379b2a19cf5d3ee26cef0e08e9d8ed92837d3/src/Settings.h#L43-L54)
+- [P6: Papyrus Tweaks 4.1.1の高速化フック導入条件](https://github.com/Nightfallstorm/PapyrusTweaks/blob/7e1379b2a19cf5d3ee26cef0e08e9d8ed92837d3/src/ExperimentalHooks.h#L234-L241)
 - [D1: DLLTweaksの独立した設定読み込み](https://github.com/digital-apple/DLLTweaks/blob/b9a80a94f06decec61d42f500594360ce248db17/source/Settings.cpp#L3-L21)
 - [D2: DLLTweaksの集中呪文コスト判定](https://github.com/digital-apple/DLLTweaks/blob/b9a80a94f06decec61d42f500594360ce248db17/source/Hooks.cpp#L64-L79)
