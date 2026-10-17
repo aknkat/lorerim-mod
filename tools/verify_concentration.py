@@ -92,7 +92,7 @@ def verify_plugin(path):
     return {"records": 3, "overrides": 0, "master": "Skyrim.esm", "scripts": 0,
         "base_cost_per_second": 50, "area_feet": 17, "distance_cap_units": 350,
         "availability": "PlayerRef indoors OR game hour >= 19 OR game hour < 6",
-        "skill_usage_multiplier": 0, "detection_color": "#E0A060", "casting_art": None,
+        "skill_usage_multiplier": 0, "detection_color": "#DFA895", "casting_art": None,
         "scope": "structural checks only; Skyrim execution not tested"}
 
 
@@ -105,7 +105,7 @@ def verify_shader(shader):
     require(all(field(shader, t) == b"\0" for t in ["ICON", "NAM7", "NAM8", "NAM9"]), "Unused shader texture/palette must be empty")
     data = field(shader, "DATA")
     require(len(data) == 400, "Invalid complete Skyrim EFSH DATA length")
-    require(all(data[o:o+4] == bytes([224, 160, 96, 0]) for o in [188, 192, 196]), "Shader RGB must be #E0A060")
+    require(all(data[o:o+4] == bytes([223, 168, 149, 0]) for o in [188, 192, 196]), "Shader RGB must be #DFA895")
     require(struct.unpack_from("<I", data, 384)[0] == 1, "Wrong shader flags: require direct RGB, particles on, membrane off")
     baseline_path = Path(__file__).resolve().parent / "data/life_detected_enemy.json"
     baseline = bytes.fromhex(json.loads(baseline_path.read_text())["data_hex"])
@@ -134,11 +134,11 @@ def verify_package(path):
         require(all(s in dl[4] for s in ["50", "5", "19:00", "6:00"]), "Wrong localized specification")
         require(("daedra" in dl[2]) if language == "English" else ("デイドラ" in dl[2]), "Missing daedra exclusion text")
     manifest = json.loads((path / META / "build-manifest.json").read_text(encoding="utf-8"))
-    require(manifest["plugin"] == PLUGIN and manifest["version"] == "0.2.5", "Wrong package identity")
+    require(manifest["plugin"] == PLUGIN and manifest["version"] == "0.2.6", "Wrong package identity")
     require(manifest["overrides"] == manifest["scripts"] == manifest["quests"] == manifest["additional_skse_plugins"] == 0,
         "Incorrect runtime dependency claims")
     require(manifest["status"] == "structurally_verified_game_validation_pending", "Unsupported runtime validation claim")
-    require(manifest["detection_color"] == "#E0A060" and manifest["hand_casting_art"] is None, "Wrong appearance metadata")
+    require(manifest["detection_color"] == "#DFA895" and manifest["hand_casting_art"] is None, "Wrong appearance metadata")
     require(manifest["native_area_feet"] == 17 and manifest["distance_cap_game_units"] == 350
         and manifest["approximate_radius_metres"] == 5 and manifest["base_magicka_per_second"] == 50,
         "Wrong balance metadata")

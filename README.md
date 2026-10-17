@@ -1,8 +1,8 @@
 # LoreRim 5：鋭敏な感覚 / Khajiit Keen Senses
 
-**新しい制作物：鋭敏な感覚（集中）0.2.5。色を#E0A060へ差し替え、屋内常時・屋外19:00以上～翌6:00未満、半径約5m・基礎50マジカ／秒、デイドラ除外の版です。** 探知色#E0A060・手元の光なし・使用によるスキル経験値なしは維持します。新規SPEL・MGEF・専用EFSHの3件で構成し、既存レコードの上書き、独自スクリプト、クエスト、DLL、追加SKSEプラグインはありません。条件・配布構造の検査とゲーム内動作確認は区別します。実機未検証です。
+**新しい制作物：鋭敏な感覚（集中）0.2.6。色を#DFA895へ差し替え、屋内常時・屋外19:00以上～翌6:00未満、半径約5m・基礎50マジカ／秒、デイドラ除外の版です。** 探知色#DFA895・手元の光なし・使用によるスキル経験値なしは維持します。新規SPEL・MGEF・専用EFSHの3件で構成し、既存レコードの上書き、独自スクリプト、クエスト、DLL、追加SKSEプラグインはありません。条件・配布構造の検査とゲーム内動作確認は区別します。実機未検証です。
 
-[集中呪文版のMO2導入ZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSensesConcentration-0.2.5-MO2.zip) / [制作ソースZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSensesConcentration-0.2.5-source.zip) / [導入・解除・検証状況のREADME](docs/CONCENTRATION.md) / [ビルド方法](docs/CONCENTRATION_BUILD.md)
+[集中呪文版のMO2導入ZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSensesConcentration-0.2.6-MO2.zip) / [制作ソースZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSensesConcentration-0.2.6-source.zip) / [導入・解除・検証状況のREADME](docs/CONCENTRATION.md) / [ビルド方法](docs/CONCENTRATION_BUILD.md)
 
 新ESPは **`KhajiitKeenSensesConcentration.esp`**。旧特殊能力版と別MODとして導入し、「鋭敏な感覚（集中）」を手に装備して通常の魔法として使用します。独自の60秒制限はありません。変性に分類し、経験値倍率0・半減Perk未設定ですが、他の方法で育てた変性や一般の消費補正の影響は受け得ます。50／秒は補正前の値です。屋外の6:00～18:59台は探知が無効でも詠唱・消費が続く可能性があります。時刻はゲーム内時計の固定判定で、照度やENBとは連動しません。
 
