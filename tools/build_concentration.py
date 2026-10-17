@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the script-free 0.2.3 spell without touching any historical archive.
+"""Build the script-free 0.2.4 spell without touching any historical archive.
 
 Only Python's standard library is needed. This writer follows xEdit's TES5
 SPEL/MGEF/EFSH schema. The dedicated shader uses normalized standard settings
@@ -17,7 +17,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
 PLUGIN = "KhajiitKeenSensesConcentration.esp"
-VERSION = "0.2.3"
+VERSION = "0.2.4"
 META = "KhajiitKeenSensesConcentration"
 SPELL_ID, EFFECT_ID = 0x01000800, 0x01000801
 SHADER_ID = 0x01000802
@@ -45,9 +45,9 @@ def group(tag, data):
                        tag.encode("ascii"), 0, 0, 0, 0, 0) + data
 
 
-def condition(function, p1=0, *, value=0, operator=0, run_on=0, or_next=False):
+def condition(function, p1=0, *, value=0, operator=0, run_on=0, reference=0, or_next=False):
     return sub("CTDA", struct.pack("<B3xfH2xIIIIi",
-        (operator << 5) | int(or_next), value, function, p1, 0, run_on, 0, -1))
+        (operator << 5) | int(or_next), value, function, p1, 0, run_on, reference, -1))
 
 
 def shader_payload():
@@ -72,17 +72,17 @@ def shader_payload():
 def make_plugin():
     header = (sub("HEDR", struct.pack("<fII", 1.7, 6, 0x803))
         + sub("CNAM", ztext("aknkat"))
-        + sub("SNAM", ztext("Keen Senses Concentration 0.2.3: light peach #E0C8B8, no hand casting art; game validation pending."))
+        + sub("SNAM", ztext("Keen Senses Concentration 0.2.4: 5m, base 50/s, indoors or 19:00-06:00 exclusive, no daedra; game validation pending."))
         + sub("MAST", ztext("Skyrim.esm")) + sub("DATA", bytes(8)))
 
     data = bytearray(152)
     # Native Concentration Detect Life shape. No PowerAffectsMagnitude/Duration,
     # NoArea, hostile, detrimental, script archetype, or runtime VMAD.
     struct.pack_into("<I", data, 0, 0x04021412)
-    struct.pack_into("<f", data, 4, 25)
+    struct.pack_into("<f", data, 4, 50)
     struct.pack_into("<ii", data, 12, 18, -1)  # Alteration; no resistance AV.
     struct.pack_into("<I", data, 32, SHADER_ID)  # Dedicated private-color EFSH.
-    struct.pack_into("<I", data, 44, 20)      # Feet, not magnitude/metres.
+    struct.pack_into("<I", data, 44, 17)      # Feet, covering the ~5m cap.
     struct.pack_into("<Ii", data, 64, 19, -1)  # Detect Life, ActorValue None.
     struct.pack_into("<IIi", data, 80, 2, 0, -1)  # Concentration, Self, AV None.
     # Casting Art stays NULL: remove the hand glow, not casting animations.
@@ -98,22 +98,30 @@ def make_plugin():
     effect += sub("DNAM", struct.pack("<I", 2))
     # These run on each candidate being detected, not on its race/faction.
     effect += condition(46)  # GetDead == 0.
-    for keyword in (0x13796, 0x1397A, 0xF82F4):
-        effect += condition(560, keyword)  # Undead, Dwarven, NoDetectLife.
+    for keyword in (0x13796, 0x1397A, 0x13797, 0xF82F4):
+        effect += condition(560, keyword)  # Undead, Dwarven, Daedra, NoDetectLife.
     effect += condition(715)  # IsUndead == 0.
-    effect += condition(1, 0x14, value=420, operator=5)  # <= ~6m from PlayerRef.
+    effect += condition(1, 0x14, value=350, operator=5)  # <= ~5m from PlayerRef.
+    # A single OR group, ANDed with ALL candidate filters above:
+    # PlayerRef indoors OR game hour >= 19 OR game hour < 6.
+    # Use an explicit PlayerRef for the indoor check, never the detected NPC.
+    # Put availability on MGEF for native condition evaluation, not a script,
+    # quest timer, or forced caster interruption. Boundary runtime is untested.
+    effect += condition(300, value=1, run_on=2, reference=0x14, or_next=True)
+    effect += condition(18, value=19, operator=3, run_on=2, reference=0x14, or_next=True)
+    effect += condition(18, value=6, operator=4, run_on=2, reference=0x14)
 
     # Keep native concentration spell handling and hand casting, not Voice.
     # ManualCostCalc overrides auto-calculation, NOT the engine's actor/perk
     # cost adjustments. No castingPerk reference and no free-cost flags.
-    spit = struct.pack("<IIIfIIffI", 25, 0x00B80001, 0, 0, 2, 0, 0, 0, 0)
+    spit = struct.pack("<IIIfIIffI", 50, 0x00B80001, 0, 0, 2, 0, 0, 0, 0)
     spell = (sub("EDID", ztext("LKSC_KeenSenses")) + sub("OBND", bytes(12))
         + sub("FULL", struct.pack("<I", 3))
         + sub("MDOB", struct.pack("<I", 0x104F70))
         + sub("ETYP", struct.pack("<I", 0x13F44))
         + sub("DESC", struct.pack("<I", 4)) + sub("SPIT", spit)
         + sub("EFID", struct.pack("<I", EFFECT_ID))
-        + sub("EFIT", struct.pack("<fII", 0, 20, 0)))
+        + sub("EFIT", struct.pack("<fII", 0, 17, 0)))
     # In magic-effect conditions Target is the caster. Subject is the effect
     # target/candidate. Never put the Khajiit/player restriction on candidates:
     # doing so would hide ordinary NPCs. No circular HasMagicEffect condition.
@@ -129,15 +137,15 @@ def make_plugin():
 TEXT = {
     "English": {
         1: "Keen Senses: Detection",
-        2: "Detect living creatures within about 6 metres while casting. All targets share a light peach glow. Excludes corpses, undead and machines.",
+        2: "Detect living creatures within about 5 metres while casting, indoors at any hour or outdoors from 19:00 to before 06:00. Excludes corpses, undead, machines and daedra. All targets share a light peach glow.",
         3: "Keen Senses (Concentration)",
-        4: "Khajiit player only. Detect nearby living creatures through walls while casting. Range: about 6 metres. Base cost: 25 Magicka per second before modifiers. No skill experience or cooldown.",
+        4: "Khajiit player only. Detect living creatures through walls within about 5 metres. Indoors at any hour; outdoors 19:00 to before 06:00. Base cost: 50 Magicka per second before modifiers. No skill experience or cooldown. Casting may consume Magicka even when detection is inactive.",
     },
     "Japanese": {
         1: "鋭敏な感覚：探知",
-        2: "詠唱中、半径約6mの生物を共通の明るいピーチ色で探知する。死体・アンデッド・機械は対象外。",
+        2: "詠唱中、半径約5mの生物を共通の明るいピーチ色で探知する。屋内は常時、屋外は19:00から翌6:00未満に有効。死体・アンデッド・機械・デイドラは対象外。",
         3: "鋭敏な感覚（集中）",
-        4: "カジートのプレイヤー専用。詠唱中、壁越しに半径約6mの生物を探知する。基礎消費は毎秒25マジカ（補正前）。スキル経験値・再使用待ちなし。",
+        4: "カジートのプレイヤー専用。詠唱中、壁越しに半径約5mの生物を探知する。屋内は常時、屋外は19:00から翌6:00未満に有効。基礎消費は毎秒50マジカ（補正前）。スキル経験値・再使用待ちなし。探知が無効な時間帯も詠唱でマジカを消費する場合がある。",
     },
 }
 
@@ -161,14 +169,22 @@ def make_manifest():
                     {"id": "000802", "type": "EFSH", "editor_id": "LKSC_DetectionAmberShader"}],
         "overrides": 0, "scripts": 0, "quests": 0, "additional_skse_plugins": 0,
         "cast_type": "Concentration", "delivery": "Self", "equip": "EitherHand",
-        "native_area_feet": 20, "distance_cap_game_units": 420,
-        "approximate_radius_metres": 6, "base_magicka_per_second": 25,
+        "native_area_feet": 17, "distance_cap_game_units": 350,
+        "approximate_radius_metres": 5, "base_magicka_per_second": 50,
         "actual_cost": "Engine and LoreRim modifiers may change the base cost.",
         "school": "Alteration", "skill_usage_multiplier": 0, "half_cost_perk": None,
         "cooldown": None, "duration": "while casting; no timed pulse",
         "caster": "player, normal Khajiit or vampire Khajiit; Target-context CTDA",
         "distribution": "manual player.addspell only",
-        "exclusions": ["GetDead", "ActorTypeUndead", "IsUndead", "ActorTypeDwarven", "NoDetectLife"],
+        "exclusions": ["GetDead", "ActorTypeUndead", "IsUndead", "ActorTypeDwarven", "ActorTypeDaedra", "NoDetectLife"],
+        "availability": {
+            "indoors": "all hours, based on PlayerRef IsInInterior",
+            "outdoors": {"start_hour_inclusive": 19, "end_hour_exclusive": 6},
+            "clock": "game time; user-selected fixed hours, not ENB brightness tracking",
+            "condition_location": "MGEF; (PlayerRef indoors OR hour >= 19 OR hour < 6)",
+            "forced_cast_interruption": False,
+            "inactive_cast_cost": "May still consume Magicka; boundary behavior is runtime-unverified",
+        },
         "shader": "local 000802 LKSC_DetectionAmberShader, same for all targets",
         "detection_color": "#E0C8B8", "particle_color_rgb": [224, 200, 184],
         "particle_color_mode": "direct RGB; grayscale color mapping off; palette path empty",
@@ -180,14 +196,15 @@ def make_manifest():
         "external_references": {
             "00000014": "PLYR PlayerRef", "00013745": "RACE KhajiitRace",
             "00088845": "RACE KhajiitRaceVampire", "00013796": "KYWD ActorTypeUndead",
-            "0001397A": "KYWD ActorTypeDwarven", "000F82F4": "KYWD NoDetectLife",
+            "0001397A": "KYWD ActorTypeDwarven", "00013797": "KYWD ActorTypeDaedra",
+            "000F82F4": "KYWD NoDetectLife",
             "00013F44": "EQUP EitherHand", "00104F70": "STAT MAGInvDetectLife",
             "0003F37A": "SNDR MAGAlterationDrawSheatheLPMSD",
             "0007C71F": "SNDR MAGIllusionChargeSD",
             "00081189": "SNDR MAGAlterationDetectLifeCast2DLPM",
         },
         "schema": "TES5Edit Core/wbDefinitionsTES5.pas @ 9fb016884bec138ea6c7b872cec831537d464c3e",
-        "runtime_validation": "NOT RUN: Skyrim, full LoreRim profile, light peach shader appearance, hand art removal, radius/filter contexts, real cost, skill XP, release and full-restart load",
+        "runtime_validation": "NOT RUN: Skyrim, full LoreRim profile, 19:00/06:00 transitions during casting, indoor context, inactive casting cost, daedra filtering, radius, appearance and full-restart load",
         "legacy_save_migration": "No migration or removal of old KhajiitKeenSenses script/quest state.",
         "languages": ["English", "Japanese"],
     }
@@ -275,7 +292,7 @@ def main():
     source_names = ["LICENSE", "docs/CONCENTRATION.md", "docs/CONCENTRATION_BUILD.md",
         "tools/build_concentration.py", "tools/verify_concentration.py", "tools/formats.py",
         "tools/verify_concentration_third_party.cjs", "tools/data/life_detected_enemy.json",
-        "tests/test_concentration.py", "tests/fixtures/v020-concentration.json"]
+        "tests/test_concentration.py", "tests/fixtures/v023-concentration.json"]
     source = {name: (ROOT / name).read_bytes() for name in source_names}
     source["README.md"] = source["docs/CONCENTRATION_BUILD.md"]
     source["SHA256SUMS.txt"] = "".join(f"{hashlib.sha256(b).hexdigest()}  {n}\n"

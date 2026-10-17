@@ -1,16 +1,16 @@
 # LoreRim 5：鋭敏な感覚 / Khajiit Keen Senses
 
-**新しい制作物：鋭敏な感覚（集中）0.2.3。探知色だけを#E0C8B8に差し替えた版です。** 手元の光・粒子なし、半径約6m・基礎消費25マジカ／秒・使用によるスキル経験値なしは維持します。新規SPEL・MGEF・専用EFSHの3件で構成し、既存レコードの上書き、独自スクリプト、クエスト、DLL、追加SKSEプラグインはありません。色差分・梱包時の構造チェックのみ確認し、テスト一式の再実行は省略。ゲーム内未検証です。
+**新しい制作物：鋭敏な感覚（集中）0.2.4。屋内常時・屋外19:00以上～翌6:00未満、半径約5m・基礎50マジカ／秒、デイドラ除外の版です。** 探知色#E0C8B8・手元の光なし・使用によるスキル経験値なしは維持します。新規SPEL・MGEF・専用EFSHの3件で構成し、既存レコードの上書き、独自スクリプト、クエスト、DLL、追加SKSEプラグインはありません。条件・配布構造の検査とゲーム内動作確認は区別します。実機未検証です。
 
-[集中呪文版のMO2導入ZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSensesConcentration-0.2.3-MO2.zip) / [制作ソースZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSensesConcentration-0.2.3-source.zip) / [導入・解除・検証状況のREADME](docs/CONCENTRATION.md) / [ビルド方法](docs/CONCENTRATION_BUILD.md)
+[集中呪文版のMO2導入ZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSensesConcentration-0.2.4-MO2.zip) / [制作ソースZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSensesConcentration-0.2.4-source.zip) / [導入・解除・検証状況のREADME](docs/CONCENTRATION.md) / [ビルド方法](docs/CONCENTRATION_BUILD.md)
 
-新ESPは **`KhajiitKeenSensesConcentration.esp`**。旧特殊能力版と別MODとして導入し、「鋭敏な感覚（集中）」を手に装備して通常の魔法として使用します。独自の60秒制限はありません。変性に分類し、経験値倍率0・半減Perk未設定ですが、他の方法で育てた変性や一般の消費補正の影響は受け得ます。25／秒は補正前の値です。
+新ESPは **`KhajiitKeenSensesConcentration.esp`**。旧特殊能力版と別MODとして導入し、「鋭敏な感覚（集中）」を手に装備して通常の魔法として使用します。独自の60秒制限はありません。変性に分類し、経験値倍率0・半減Perk未設定ですが、他の方法で育てた変性や一般の消費補正の影響は受け得ます。50／秒は補正前の値です。屋外の6:00～18:59台は探知が無効でも詠唱・消費が続く可能性があります。時刻はゲーム内時計の固定判定で、照度やENBとは連動しません。
 
-集中版0.2.0～0.2.2からは、ゲームを完全終了してMO2でReplace（置き換え）します。同じESP名と呪文IDを維持し、魔法の取得し直しは不要です。0.2.2からは専用EFSHのRGB3キーだけを変更し、透明度・粒子設定・腕の装備・詠唱動作は維持します。指定色は入力RGBであり、ENB・背景・透明度・加算合成で実際の見え方は変わります。0.2.1で報告されたロード後の装備解除の原因は未特定で、この色変更版で修正した扱いにはしていません。既存の配布ZIPは変更していません。
+集中版0.2.0～0.2.3からは、ゲームを完全終了してMO2でReplace（置き換え）します。同じESP名と呪文IDを維持し、魔法の取得し直しは不要です。0.2.3の専用シェーダー・腕の装備・詠唱動作は維持します。指定色は入力RGBであり、ENB・背景・透明度・加算合成で実際の見え方は変わります。0.2.1で報告されたロード後の装備解除の原因は未特定で、この版で修正した扱いにはしていません。既存の配布ZIPは変更していません。
 
 旧版のセーブ情報の移行・削除は行いません。旧版を使っている場合の扱いと、新ESPの現在のIndexから `player.addspell` する方法は上記READMEに記載しています。過去のIndexを新ESPへ転用しません。
 
-[LoreRim全体を踏まえた強度再評価・調整案](docs/CONCENTRATION_BALANCE_REVIEW.md)：非魔法特化でも日中の壁越し索敵・短時間使用・隠密との相乗効果を考慮し、以前の「ナイトアイと同程度〜やや控えめ」という評価を撤回。約5m・基礎50マジカ／秒・デイドラ除外を提案しています。調査文書のみで、現在の0.2.3と配布ZIPは変更していません。
+[LoreRim全体を踏まえた強度再評価・調整案](docs/CONCENTRATION_BALANCE_REVIEW.md)：非魔法特化でも日中の壁越し索敵・短時間使用・隠密との相乗効果を考慮し、以前の「ナイトアイと同程度〜やや控えめ」という評価を撤回。0.2.4では約5m・基礎50マジカ／秒・デイドラ除外に加え、ユーザー指定の屋外19:00～翌6:00未満／屋内常時を採用しました。ナイトアイとの等価を実証したという意味ではありません。
 
 ## 旧特殊能力版0.1.xの経緯・配布物
 

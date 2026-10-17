@@ -44,21 +44,21 @@ def verify_plugin(path):
     require([n for n, _ in spell["fields"]] == ["EDID", "OBND", "FULL", "MDOB", "ETYP", "DESC",
         "SPIT", "EFID", "EFIT", "CTDA", "CTDA", "CTDA"], "Unexpected SPEL field order or extra effect")
     require([n for n, _ in effect["fields"]] == ["EDID", "FULL", "MDOB", "DATA", "SNDD", "SNDD",
-        "SNDD", "DNAM"] + ["CTDA"] * 6, "Unexpected MGEF field order or extra runtime field")
+        "SNDD", "DNAM"] + ["CTDA"] * 10, "Unexpected MGEF field order or extra runtime field")
     spit = struct.unpack("<IIIfIIffI", field(spell, "SPIT"))
-    require(spit == (25, 0xB80001, 0, 0, 2, 0, 0, 0, 0), "Wrong base cost, type, flags, casting or half-cost perk")
+    require(spit == (50, 0xB80001, 0, 0, 2, 0, 0, 0, 0), "Wrong base cost, type, flags, casting or half-cost perk")
     require(struct.unpack("<I", field(spell, "ETYP"))[0] == 0x13F44, "Must use EitherHand, not Voice")
     require(field(spell, "EFID") == struct.pack("<I", 0x01000801), "Broken local effect link")
-    require(struct.unpack("<fII", field(spell, "EFIT")) == (0, 20, 0), "Wrong area or timed pulse")
+    require(struct.unpack("<fII", field(spell, "EFIT")) == (0, 17, 0), "Wrong area or timed pulse")
     for r in [spell, effect]:
         require(field(r, "MDOB") == struct.pack("<I", 0x104F70), "Wrong display object")
     data = field(effect, "DATA")
     require(len(data) == 152, "Invalid SSE MGEF DATA length")
     require(struct.unpack_from("<I", data)[0] == 0x04021412, "Unsafe/wrong effect flags")
-    require(struct.unpack_from("<f", data, 4)[0] == 25, "Unexpected effect base cost")
+    require(struct.unpack_from("<f", data, 4)[0] == 50, "Unexpected effect base cost")
     require(struct.unpack_from("<ii", data, 12) == (18, -1), "Wrong school or resistance AV")
     require(struct.unpack_from("<I", data, 32)[0] == 0x01000802, "Must use the dedicated local shader")
-    require(struct.unpack_from("<II", data, 40) == (0, 20), "Wrong minimum skill or spellmaking area")
+    require(struct.unpack_from("<II", data, 40) == (0, 17), "Wrong minimum skill or spellmaking area")
     require(struct.unpack_from("<Ii", data, 64) == (19, -1), "Must be native Detect Life / AV None")
     require(struct.unpack_from("<IIi", data, 80) == (2, 0, -1), "Inconsistent MGEF Concentration/Self")
     require(struct.unpack_from("<I", data, 92)[0] == 0, "Hand casting art must be NULL")
@@ -70,19 +70,28 @@ def verify_plugin(path):
         require(data[offset:offset + 4] == bytes(4), f"Unexpected linked record at MGEF offset {offset}")
     require([struct.unpack("<II", b) for b in fields(effect, "SNDD")] ==
         [(0, 0x3F37A), (1, 0x7C71F), (2, 0x81189)], "Wrong native sounds")
-    target = conditions(effect)
+    target = conditions(effect)[:7]
     require([(c["function"], c["p1"], c["value"], c["operator"]) for c in target] ==
         [(46, 0, 0, 0), (560, 0x13796, 0, 0), (560, 0x1397A, 0, 0),
-         (560, 0xF82F4, 0, 0), (715, 0, 0, 0), (1, 0x14, 420, 5)], "Wrong exclusion/radius conditions")
+         (560, 0x13797, 0, 0), (560, 0xF82F4, 0, 0), (715, 0, 0, 0),
+         (1, 0x14, 350, 5)], "Wrong exclusion/radius conditions")
     require(all(c["run_on"] == 0 and not c["or"] for c in target), "Candidate filter context/logic")
+    availability = conditions(effect)[7:]
+    require([(c["function"], c["p1"], c["value"], c["operator"], c["or"])
+        for c in availability] == [(300, 0, 1, 0, True), (18, 0, 19, 3, True), (18, 0, 6, 4, False)],
+        "Wrong indoor/night hours or OR grouping")
+    require(all(c["run_on"] == 2 and c["reference"] == 0x14 for c in availability),
+        "Indoor/night conditions must run on explicit PlayerRef")
     caster = conditions(spell)
     require([(c["function"], c["p1"], c["value"], c["or"]) for c in caster] ==
         [(136, 0x14, 1, False), (69, 0x13745, 1, True), (69, 0x88845, 1, False)], "Wrong caster guards")
     require(all(c["run_on"] == 1 and c["operator"] == 0 for c in caster), "Caster must be Target-context")
     require(all(c["p2"] == 0 and c["reference"] == 0 and c["p3"] == -1 for c in caster + target), "Unexpected condition payload")
+    require(all(c["p2"] == 0 and c["p3"] == -1 for c in availability), "Unexpected availability payload")
     verify_shader(shader)
     return {"records": 3, "overrides": 0, "master": "Skyrim.esm", "scripts": 0,
-        "base_cost_per_second": 25, "area_feet": 20, "distance_cap_units": 420,
+        "base_cost_per_second": 50, "area_feet": 17, "distance_cap_units": 350,
+        "availability": "PlayerRef indoors OR game hour >= 19 OR game hour < 6",
         "skill_usage_multiplier": 0, "detection_color": "#E0C8B8", "casting_art": None,
         "scope": "structural checks only; Skyrim execution not tested"}
 
@@ -122,13 +131,21 @@ def verify_package(path):
         il = strings_table(str(stem) + ".ILSTRINGS")
         require(set(st) == {1, 3} and set(dl) == {2, 4} and il == {}, "Broken localization ID coverage")
         require(all(isinstance(v, str) and v for v in list(st.values()) + list(dl.values())), "Empty/invalid localization")
-        require("25" in dl[4] and "6" in dl[4], "Wrong localized specification")
+        require(all(s in dl[4] for s in ["50", "5", "19:00", "6:00"]), "Wrong localized specification")
+        require(("daedra" in dl[2]) if language == "English" else ("デイドラ" in dl[2]), "Missing daedra exclusion text")
     manifest = json.loads((path / META / "build-manifest.json").read_text(encoding="utf-8"))
-    require(manifest["plugin"] == PLUGIN and manifest["version"] == "0.2.3", "Wrong package identity")
+    require(manifest["plugin"] == PLUGIN and manifest["version"] == "0.2.4", "Wrong package identity")
     require(manifest["overrides"] == manifest["scripts"] == manifest["quests"] == manifest["additional_skse_plugins"] == 0,
         "Incorrect runtime dependency claims")
     require(manifest["status"] == "structurally_verified_game_validation_pending", "Unsupported runtime validation claim")
     require(manifest["detection_color"] == "#E0C8B8" and manifest["hand_casting_art"] is None, "Wrong appearance metadata")
+    require(manifest["native_area_feet"] == 17 and manifest["distance_cap_game_units"] == 350
+        and manifest["approximate_radius_metres"] == 5 and manifest["base_magicka_per_second"] == 50,
+        "Wrong balance metadata")
+    require(manifest["availability"]["outdoors"] == {"start_hour_inclusive": 19, "end_hour_exclusive": 6}
+        and manifest["availability"]["indoors"] == "all hours, based on PlayerRef IsInInterior"
+        and manifest["availability"]["forced_cast_interruption"] is False, "Wrong availability metadata")
+    require("ActorTypeDaedra" in manifest["exclusions"], "Missing daedra exclusion metadata")
     checksum = META + "/SHA256SUMS.txt"
     checked = set()
     for line in (path / checksum).read_text().splitlines():

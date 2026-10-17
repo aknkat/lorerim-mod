@@ -46,7 +46,7 @@ async function main() {
     assert.equal(Number(shader.id), 0x01000802);
     assert.equal(shader.subRecords.find(r => r.type === 'DATA').size, 400);
     assert.equal(spell.subRecords.filter(r => r.type === 'CTDA').length, 3);
-    assert.equal(effect.subRecords.filter(r => r.type === 'CTDA').length, 6);
+    assert.equal(effect.subRecords.filter(r => r.type === 'CTDA').length, 10);
     assert.ok(!decoded.some(r => r.subRecords.some(s => s.type === 'VMAD')));
     console.log(JSON.stringify({reader: '@fcrick/tes-data', version,
       records: decoded.map(r => ({type:r.recordType, formId:Number(r.id || 0),

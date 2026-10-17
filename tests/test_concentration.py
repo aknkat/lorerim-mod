@@ -15,12 +15,21 @@ from formats import conditions, field, read_plugin
 from verify_concentration import verify_package, verify_plugin, verify_zip
 
 
-def evaluate(items, candidate, caster):
+def evaluate(items, candidate, caster, *, hour=0, player=None):
     # Exercise stored CTDA grouping, with independent caller-provided contexts.
     # Whether Skyrim supplies these contexts is an explicit runtime open item.
     group = False
+    if player is None:
+        player = {"ref": 0x14, "interior": False}
     for c in items:
-        actor = candidate if c["run_on"] == 0 else caster
+        if c["run_on"] == 0:
+            actor = candidate
+        elif c["run_on"] == 1:
+            actor = caster
+        elif c["run_on"] == 2 and c["reference"] == player["ref"]:
+            actor = player
+        else:
+            raise AssertionError("Unexpected condition context")
         if c["function"] == 136:
             actual = int(actor["ref"] == c["p1"])
         elif c["function"] == 69:
@@ -33,9 +42,15 @@ def evaluate(items, candidate, caster):
             actual = int(actor["undead"])
         elif c["function"] == 1:
             actual = actor["distance"]
+        elif c["function"] == 18:
+            actual = hour
+        elif c["function"] == 300:
+            actual = int(actor["interior"])
         else:
             raise AssertionError("Unexpected condition function")
-        ok = actual == c["value"] if c["operator"] == 0 else actual <= c["value"]
+        op, value = c["operator"], c["value"]
+        ok = {0: actual == value, 1: actual != value, 2: actual > value,
+              3: actual >= value, 4: actual < value, 5: actual <= value}[op]
         group |= ok
         if not c["or"]:
             if not group:
@@ -59,20 +74,32 @@ class ConcentrationTests(unittest.TestCase):
         result = verify_package(self.package)
         self.assertEqual((result["records"], result["overrides"], result["scripts"]), (3, 0, 0))
 
-    def test_published_020_spell_is_unchanged_and_effect_changes_only_two_links(self):
-        baseline = json.loads((ROOT / "tests/fixtures/v020-concentration.json").read_text())
+    def test_published_023_only_approved_balance_and_condition_fields_change(self):
+        baseline = json.loads((ROOT / "tests/fixtures/v023-concentration.json").read_text())
         old_spell = [(n, bytes.fromhex(d)) for n, d in baseline["records"]["SPEL"]]
         old_effect = [(n, bytes.fromhex(d)) for n, d in baseline["records"]["MGEF"]]
-        self.assertEqual(self.spell["fields"], old_spell)
+        expected = []
+        for name, raw in old_spell:
+            if name == "SPIT":
+                raw = struct.pack("<I", 50) + raw[4:]
+            elif name == "EFIT":
+                raw = raw[:4] + struct.pack("<I", 17) + raw[8:]
+            expected.append((name, raw))
+        self.assertEqual(self.spell["fields"], expected)
         expected = []
         for name, raw in old_effect:
+            if name == "CTDA":
+                continue  # Conditions are checked independently below/in verifier.
             if name == "DATA":
                 data = bytearray(raw)
-                struct.pack_into("<I", data, 32, 0x01000802)
-                struct.pack_into("<I", data, 92, 0)
+                struct.pack_into("<f", data, 4, 50)
+                struct.pack_into("<I", data, 44, 17)
                 raw = bytes(data)
             expected.append((name, raw))
-        self.assertEqual(self.effect["fields"], expected)
+        self.assertEqual([(n, b) for n, b in self.effect["fields"] if n != "CTDA"], expected)
+        records, _ = read_plugin(self.plugin)
+        shader = next(r for r in records if r["type"] == "EFSH")
+        self.assertEqual(shader["fields"], [(n, bytes.fromhex(d)) for n, d in baseline["records"]["EFSH"]])
 
     def test_private_shader_direct_color_and_native_particle_behavior(self):
         records, _ = read_plugin(self.plugin)
@@ -115,13 +142,64 @@ class ConcentrationTests(unittest.TestCase):
     def test_candidate_exclusions_and_exact_encoded_range_boundary(self):
         filters = conditions(self.effect)
         alive = {"dead":False,"undead":False,"keywords":set(),"distance":100}
-        cases = [({},True), ({"distance":0},True), ({"distance":420},True),
-            ({"distance":420.01},False), ({"distance":1000},False), ({"dead":True},False),
+        cases = [({},True), ({"distance":0},True), ({"distance":350},True),
+            ({"distance":350.01},False), ({"distance":1000},False), ({"dead":True},False),
             ({"undead":True},False), ({"keywords":{0x13796}},False),
-            ({"keywords":{0x1397A}},False), ({"keywords":{0xF82F4}},False)]
+            ({"keywords":{0x1397A}},False), ({"keywords":{0x13797}},False),
+            ({"keywords":{0xF82F4}},False)]
         for changes, expected in cases:
             with self.subTest(changes=changes):
                 self.assertEqual(evaluate(filters, dict(alive, **changes), {}), expected)
+
+    def test_night_boundaries_and_all_day_player_interior(self):
+        filters = conditions(self.effect)
+        candidate = {"dead":False, "undead":False, "keywords":set(), "distance":100,
+                     "interior":True}
+        # Include the last second before 06:00, exact 06:00, exact 19:00,
+        # and both sides of midnight. All are GAME hours, not real-world time.
+        cases = [(0,True), (5,True), (5 + 59/60 + 59/3600,True), (6,False),
+                 (8,False), (12,False), (18 + 59/60 + 59/3600,False),
+                 (19,True), (21,True), (23 + 59/60 + 59/3600,True)]
+        for hour, expected in cases:
+            with self.subTest(hour=hour):
+                self.assertEqual(evaluate(filters, candidate, {}, hour=hour), expected)
+                self.assertTrue(evaluate(filters, candidate, {}, hour=hour,
+                    player={"ref":0x14, "interior":True}))
+
+    def test_indoor_guard_uses_player_not_candidate(self):
+        filters = conditions(self.effect)
+        alive = {"dead":False, "undead":False, "keywords":set(), "distance":100}
+        self.assertFalse(evaluate(filters, dict(alive, interior=True), {}, hour=12,
+            player={"ref":0x14, "interior":False}))
+        self.assertTrue(evaluate(filters, dict(alive, interior=False), {}, hour=12,
+            player={"ref":0x14, "interior":True}))
+
+    def test_indoor_or_night_never_bypasses_exclusions_or_distance(self):
+        filters = conditions(self.effect)
+        alive = {"dead":False, "undead":False, "keywords":set(), "distance":100}
+        for hour, indoor in [(0,False), (12,True), (19,False)]:
+            for changes in [{"dead":True}, {"undead":True}, {"keywords":{0x13797}},
+                            {"keywords":{0x1397A}}, {"distance":351}]:
+                with self.subTest(hour=hour, indoor=indoor, changes=changes):
+                    self.assertFalse(evaluate(filters, dict(alive, **changes), {}, hour=hour,
+                        player={"ref":0x14, "interior":indoor}))
+
+    def test_wrong_hours_reference_and_or_group_are_rejected(self):
+        original = self.plugin.read_bytes()
+        ctda = [raw for name, raw in self.effect["fields"] if name == "CTDA"]
+        # Condition records are unique; modify serialized fields independently
+        # of the writer so wrong boundaries or a lost OR cannot pass packaging.
+        mutations = [(7,24,struct.pack("<I",0x15)), (8,0,bytes([0x60])),
+                     (8,4,struct.pack("<f",18)), (9,0,bytes([0xA0])),
+                     (9,4,struct.pack("<f",6.01))]
+        for index, offset, replacement in mutations:
+            with self.subTest(condition=index, offset=offset):
+                old = ctda[index]
+                self.assertEqual(original.count(old), 1)
+                modified = old[:offset] + replacement + old[offset+len(replacement):]
+                self.plugin.write_bytes(original.replace(old, modified, 1))
+                with self.assertRaises(ValueError):
+                    verify_plugin(self.plugin)
 
     def test_repeat_build_produces_identical_package_and_archive(self):
         other = self.package.parent / "second"
@@ -165,7 +243,7 @@ class ConcentrationTests(unittest.TestCase):
     def test_wrong_local_link_and_cost_are_rejected(self):
         original = self.plugin.read_bytes()
         for old, new in [(b"EFID\x04\x00" + struct.pack("<I",0x01000801), b"EFID\x04\x00" + struct.pack("<I",0x01000809)),
-                (b"SPIT\x24\x00" + struct.pack("<I",25), b"SPIT\x24\x00" + struct.pack("<I",0))]:
+                (b"SPIT\x24\x00" + struct.pack("<I",50), b"SPIT\x24\x00" + struct.pack("<I",0))]:
             with self.subTest(field=old[:4]):
                 self.assertEqual(original.count(old), 1)
                 self.plugin.write_bytes(original.replace(old,new,1))
