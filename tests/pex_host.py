@@ -99,7 +99,7 @@ class ScriptInstance:
             elif op == 25:
                 if a[0][1].lower() == 'debug' and a[1][1].lower() == 'messagebox' and len(extra) == 1:
                     host.messages.append(get(extra[0]))
-                    put(a[2], 0)
+                    put(a[2], None)
                     pc += 1
                     continue
                 if a[0][1].lower() != "game" or extra:
@@ -161,7 +161,7 @@ class Host:
                 self.starts += 1
                 self.running = self.start_ok
                 return self.start_ok
-            if method == "tryactivate":
+            if any(key.lower() == method for key in self.manager.obj['states']['']):
                 if not self.running:
                     raise ValueError("Controller called before quest start")
                 return self.manager.invoke(name, args, self)

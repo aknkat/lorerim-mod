@@ -4,7 +4,7 @@
 
 [MO2導入用ZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSenses-0.1.4-MO2.zip) / [制作ソースZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSenses-0.1.4-source.zip)
 
-**現在の診断：** 主能力800の直接Castは光らず、同じ状態で内部探知803をCastすると光りました。探知表示は動いているため、主能力の条件・起動・制御へ調査を絞ります。[診断用追加MOD](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSenses-0.1.4-diagnostic2-MO2.zip) は現在の制御を1回呼び、時計・保存期限・条件・判定結果を表示するものです。diagnostic2は英字だけの `lksprobe` で呼び出せます。修正済み本体ではありません。[診断手順](docs/RELOAD_DIAGNOSTIC.md) と [診断用ソースZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSenses-0.1.4-diagnostic2-source.zip)。
+**現在の診断：** 主能力800の直接Castは光らず、同じ状態で内部探知803をCastすると光りました。案内した `cqf` は認識されなかったため撤回します。[診断用追加MOD diagnostic3](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSenses-0.1.4-diagnostic3-MO2.zip) はコマンド入力不要。通常のY＋RTから起動箇所・時計・保存期限・判定結果を表示します。修正済み本体ではありません。[診断手順](docs/RELOAD_DIAGNOSTIC.md) と [診断用ソースZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSenses-0.1.4-diagnostic3-source.zip)。
 
 カジートのプレイヤー向けに、半径約8mの生物を2秒間探知する特殊能力（Lesser Power）を追加します。再使用は60秒後、マジカ・スタミナ消費は0。既存のナイトアイ、種族、Perk、NPCは変更しません。
 
@@ -20,7 +20,7 @@ v0.1.4は、専用クエスト上の期限を、入力ごとにバニラAPI `Gam
 
 コンパイル済みPEXを模擬APIで実行し、更新登録を一切復元しないロード、再入力、旧版の待機フラグ、遅れて届く旧イベント、時計の巻き戻りを検査します。**標準プレイ時計の保存・進行は模擬しており、Skyrim本体の保存・復元、メニュー中の時間計測と装備入力は実機未確認です。** 詳細は [v0.1.4の変更](docs/RELOAD_FIX_0.1.4.md) と [検証記録](docs/VALIDATION.md)。
 
-その後、v0.1.4でもロード後に発動せず、付け外し後にクールダウン時間を経て発動するような挙動が報告されました。待機解除イベントの廃止だけで問題を解決したとは扱いません。現在は、付け外し前の不発状態で主能力を直接Castし、装備・入力経路を通さずに同じ制御を試す切り分けが必要です。新たな自動装備処理や版の更新を、原因未確認のまま追加しません。
+その後、v0.1.4でもロード後に発動せず、付け外し後にクールダウン時間を経て発動するような挙動が報告されました。待機解除イベントの廃止だけで問題を解決したとは扱いません。主能力の直接Castも不発、内部探知の直接Castは表示できたため、現在は入力スクリプトと制御の診断へ進んでいます。新たな自動装備処理は追加しません。
 
 ## 保存・ロードとLoreRimの注意事項
 

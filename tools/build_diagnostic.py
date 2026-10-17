@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile a diagnostic overlay without changing v0.1.4's saved fields or code."""
+"""Compile a power-triggered diagnostic overlay with unchanged saved fields."""
 import argparse
 import hashlib
 import json
@@ -13,13 +13,14 @@ from build import CAPRICA_SHA256, archive, source_archive, windows_path
 from formats import normalize_pex, read_pex, read_plugin, repair_caprica_skyrim_size, vmad
 
 ROOT = Path(__file__).resolve().parent.parent
-WORK = ROOT / 'build' / 'diagnostic2'
-METADATA = 'KhajiitKeenSenses/diagnostic2/'
+WORK = ROOT / 'build' / 'diagnostic3'
+METADATA = 'KhajiitKeenSenses/diagnostic3/'
 BASE_SHA256 = '36473781515cb99d1f8bf47a05cff933ed2a4b37c1dd8360fb3b07e39c9a9fad'
 NAME = 'LKS_KeenSensesController'
+EFFECT = 'LKS_KeenSensesEffect'
 EXTRA = r'''
 
-; Invoked explicitly by console: cqf <controller-quest> LKS_Probe
+; Invoked by the instrumented input effect. No console command is required.
 ; All new values are function locals. TryActivate is the unchanged v0.1.4 code.
 Function LKS_Probe()
     Actor playerRef = Game.GetPlayer()
@@ -44,10 +45,36 @@ Function LKS_Probe()
     Debug.MessageBox(report)
 EndFunction
 
-; ASCII-only alias for consoles where an underscore cannot be entered.
+; Retain the diagnostic2 entry point.
 Function LKSProbe()
     LKS_Probe()
 EndFunction
+'''
+
+TRIGGER = r'''Event OnEffectStart(Actor akTarget, Actor akCaster)
+    Debug.MessageBox("LKS DIAG3: INPUT START\nClose this message to continue to the controller report.")
+    Actor playerRef = Game.GetPlayer()
+    If akTarget != playerRef || akCaster != playerRef
+        Debug.MessageBox("LKS DIAG3: target or caster is not PlayerRef.")
+    ElseIf CooldownController == None
+        Debug.MessageBox("LKS DIAG3: CooldownController is not bound.")
+    Else
+        Bool controllerReady = CooldownController.IsRunning()
+        If !controllerReady
+            controllerReady = CooldownController.Start()
+        EndIf
+        If controllerReady
+            LKS_KeenSensesController controller = CooldownController as LKS_KeenSensesController
+            If controller != None
+                controller.LKSProbe()
+            Else
+                Debug.MessageBox("LKS DIAG3: controller script cast returned None.")
+            EndIf
+        Else
+            Debug.MessageBox("LKS DIAG3: controller quest Start failed.")
+        EndIf
+    EndIf
+EndEvent
 '''
 
 
@@ -67,17 +94,6 @@ def verify_behavior(original, diagnostic, effect, bindings, manager_bindings):
     added = set(diagnostic['states']['']) - set(original['states'][''])
     if added != {'LKS_Probe', 'LKSProbe'}:
         raise ValueError(f'Unexpected extra functions: {added}')
-    legacy_path = ROOT / 'dist/KhajiitKeenSenses-0.1.4-diagnostic1-MO2.zip'
-    if hashlib.sha256(legacy_path.read_bytes()).hexdigest() != 'bf006da3fd02b5030aa7c6e5c558ac44543890fe8414ab83ecba33f5bffb0868':
-        raise ValueError('Published diagnostic1 archive was changed')
-    with zipfile.ZipFile(legacy_path) as z:
-        legacy = read_pex(z.read(f'Scripts/{NAME}.pex'))['objects'][0]
-    for key in ('variables', 'properties'):
-        if diagnostic[key] != legacy[key]:
-            raise ValueError(f'Alias changed diagnostic1 saved layout: {key}')
-    for name, fn in legacy['states'][''].items():
-        if diagnostic['states'][''].get(name) != fn:
-            raise ValueError(f'Alias changed diagnostic1 function: {name}')
     for case in ('ready', 'cooldown', 'wrong-race', 'missing-spell'):
         host = Host(effect, diagnostic, bindings, manager_bindings)
         host.running = True
@@ -101,7 +117,52 @@ def verify_behavior(original, diagnostic, effect, bindings, manager_bindings):
             raise ValueError(f'Incorrect report: {case}')
         if case != 'ready' and before != host.manager.fields:
             raise ValueError(f'Rejected probe changed saved state: {case}')
-    print('Diagnostic verification: no new saved fields; all v0.1.4/diagnostic1 functions identical; ASCII alias passed four compiled report cases.')
+    print('Controller diagnostic: no new saved fields; all v0.1.4 functions identical; four compiled report cases passed.')
+
+
+def verify_input(original, diagnostic, controller, bindings, manager_bindings):
+    """Execute the instrumented compiled entry event, not a source translation."""
+    from pex_host import Host
+    for key in ('name', 'parent', 'variables', 'properties'):
+        if original[key] != diagnostic[key]:
+            raise ValueError(f'Input diagnostic changed saved layout: {key}')
+    if set(original['states']) != set(diagnostic['states']):
+        raise ValueError('Input diagnostic changed script states')
+    for state, functions in original['states'].items():
+        if set(functions) != set(diagnostic['states'][state]):
+            raise ValueError('Input diagnostic added or removed a function')
+        for name, function in functions.items():
+            if name.lower() != 'oneffectstart' and diagnostic['states'][state][name] != function:
+                raise ValueError(f'Input diagnostic changed another function: {name}')
+    cases = ('ready', 'cooldown', 'wrong-race', 'missing-spell',
+             'missing-controller', 'start-failed', 'wrong-target')
+    for case in cases:
+        host = Host(diagnostic, controller, dict(bindings), manager_bindings)
+        if case == 'cooldown':
+            host.activate()
+            host.advance(15)
+            host.casts.clear()
+            host.messages.clear()
+        elif case == 'wrong-race':
+            host.race = 0x13746
+        elif case == 'missing-spell':
+            var = controller['properties']['DetectionSpell']['variable'].lower()
+            host.manager.fields[var] = None
+        elif case == 'missing-controller':
+            host.effect_bindings['CooldownController'] = None
+        elif case == 'start-failed':
+            host.start_ok = False
+        host.activate('npc' if case == 'wrong-target' else 'player', 'player')
+        if len(host.messages) != 2 or 'LKS DIAG3: INPUT START' not in host.messages[0]:
+            raise ValueError(f'Input diagnostic messages missing: {case}')
+        if len(host.casts) != int(case == 'ready') or host.registrations:
+            raise ValueError(f'Input diagnostic cast/timer mismatch: {case}')
+        errors = {'missing-controller': 'not bound', 'start-failed': 'Start failed',
+                  'wrong-target': 'not PlayerRef'}
+        expected = errors.get(case, f'TryActivate accepted: {case == "ready"}')
+        if expected not in host.messages[1]:
+            raise ValueError(f'Input diagnostic result mismatch: {case}')
+    print('Power input diagnostic: saved layout unchanged; seven compiled entry/report/error cases passed.')
 
 
 def main():
@@ -125,7 +186,8 @@ def main():
     (package / METADATA).mkdir(parents=True)
     with zipfile.ZipFile(base) as z:
         original = read_pex(z.read(f'Scripts/{NAME}.pex'))['objects'][0]
-        effect = read_pex(z.read('Scripts/LKS_KeenSensesEffect.pex'))['objects'][0]
+        effect = read_pex(z.read(f'Scripts/{EFFECT}.pex'))['objects'][0]
+        effect_source = z.read(f'Scripts/Source/{EFFECT}.psc').decode('utf-8')
         original_source = z.read(f'Scripts/Source/{NAME}.psc').decode('utf-8')
         if original_source != (ROOT / 'scripts/source' / (NAME + '.psc')).read_text():
             raise ValueError('Source differs from published v0.1.4')
@@ -133,37 +195,44 @@ def main():
         esp.write_bytes(z.read('KhajiitKeenSenses.esp'))
     generated = source / (NAME + '.psc')
     generated.write_text(original_source + EXTRA, encoding='utf-8')
+    trigger = source / (EFFECT + '.psc')
+    trigger.write_text(effect_source.split('Event OnEffectStart(', 1)[0] + TRIGGER, encoding='utf-8')
     api = ROOT / 'tools/papyrus-api'
     command = ([args.wine] if args.wine else []) + [str(compiler), '--game=skyrim',
         '--strict', '--champollion-compat=false', '--enable-debug-info=false',
         '--all-warnings-as-errors', '--flags=' + windows_path(api / 'TESV_Papyrus_Flags.flg', args.wine),
         '--import=' + windows_path(api, args.wine),
-        '--output=' + windows_path(package / 'Scripts', args.wine), NAME + '.psc']
+        '--output=' + windows_path(package / 'Scripts', args.wine), NAME + '.psc', EFFECT + '.psc']
     subprocess.run(command, cwd=source, check=True)
-    pex = package / 'Scripts' / (NAME + '.pex')
-    repair_caprica_skyrim_size(pex)
-    normalize_pex(pex)
-    diagnostic = read_pex(pex)['objects'][0]
+    for name in (NAME, EFFECT):
+        pex = package / 'Scripts' / (name + '.pex')
+        repair_caprica_skyrim_size(pex)
+        normalize_pex(pex)
+        subprocess.run([args.dotnet, 'run', '--project', str(ROOT / 'tools/PluginBuilder/PluginBuilder.csproj'),
+            '--no-build', '--configuration', 'Release', '--', '--verify-pex', str(pex)], cwd=ROOT, check=True)
+        shutil.copy2(source / (name + '.psc'), package / 'Scripts/Source')
+    diagnostic = read_pex(package / 'Scripts' / (NAME + '.pex'))['objects'][0]
+    diagnostic_effect = read_pex(package / 'Scripts' / (EFFECT + '.pex'))['objects'][0]
     records, _ = read_plugin(esp)
     forms = {r['id'] & 0xFFFFFF: r for r in records[1:]}
-    verify_behavior(original, diagnostic, effect,
-        vmad(forms[0x801])['LKS_KeenSensesEffect']['properties'],
-        vmad(forms[0x804])[NAME]['properties'])
-    subprocess.run([args.dotnet, 'run', '--project', str(ROOT / 'tools/PluginBuilder/PluginBuilder.csproj'),
-        '--no-build', '--configuration', 'Release', '--', '--verify-pex', str(pex)], cwd=ROOT, check=True)
-    shutil.copy2(generated, package / 'Scripts/Source')
+    bindings = vmad(forms[0x801])[EFFECT]['properties']
+    manager_bindings = vmad(forms[0x804])[NAME]['properties']
+    verify_behavior(original, diagnostic, effect, bindings, manager_bindings)
+    verify_input(effect, diagnostic_effect, diagnostic, bindings, manager_bindings)
     shutil.copy2(ROOT / 'docs/RELOAD_DIAGNOSTIC.md', package / METADATA / 'README.md')
     shutil.copy2(ROOT / 'LICENSE', package / METADATA / 'LICENSE.txt')
     (package / METADATA / 'build-manifest.json').write_text(json.dumps({
-        'version': '0.1.4-diagnostic2', 'requires': 'KhajiitKeenSenses 0.1.4',
+        'version': '0.1.4-diagnostic3', 'requires': 'KhajiitKeenSenses 0.1.4',
         'base_sha256': BASE_SHA256, 'new_records': 0, 'new_saved_variables': 0,
-        'original_functions_unchanged': True, 'command': 'cqf FECFD804 lksprobe',
-        'note': 'Probe attempts one normal activation; not a bug fix. Runtime command/display unverified.'
+        'controller_functions_unchanged': True, 'input_event_instrumented': True,
+        'command_required': False, 'activation': 'Use the existing Keen Senses power once',
+        'note': 'Probe attempts one normal activation; not a bug fix. Skyrim runtime/display unverified.'
     }, indent=2) + '\n')
-    output = ROOT / 'dist/KhajiitKeenSenses-0.1.4-diagnostic2-MO2.zip'
+    output = ROOT / 'dist/KhajiitKeenSenses-0.1.4-diagnostic3-MO2.zip'
     archive(package, output, checksum_path=METADATA + 'SHA256SUMS.txt')
     with zipfile.ZipFile(output) as z:
-        expected = {f'Scripts/{NAME}.pex', f'Scripts/Source/{NAME}.psc'} | {
+        expected = {f'Scripts/{name}.pex' for name in (NAME, EFFECT)} | {
+            f'Scripts/Source/{name}.psc' for name in (NAME, EFFECT)} | {
             METADATA + n for n in ('README.md', 'LICENSE.txt', 'build-manifest.json', 'SHA256SUMS.txt')}
         if set(z.namelist()) != expected or z.testzip() is not None:
             raise ValueError('Invalid diagnostic-only archive')
@@ -171,7 +240,7 @@ def main():
             digest, name = line.split('  ', 1)
             if hashlib.sha256(z.read(name)).hexdigest() != digest:
                 raise ValueError('Diagnostic checksum failure')
-    source_archive(ROOT / 'dist/KhajiitKeenSenses-0.1.4-diagnostic2-source.zip')
+    source_archive(ROOT / 'dist/KhajiitKeenSenses-0.1.4-diagnostic3-source.zip')
 
 
 if __name__ == '__main__':
