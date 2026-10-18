@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the script-free 0.2.8 spell without touching any historical archive.
+"""Build the script-free 0.2.9 spell without touching any historical archive.
 
 Only Python's standard library is needed. This writer follows xEdit's TES5
 SPEL/MGEF/EFSH schema. The dedicated shader uses normalized standard settings
@@ -17,11 +17,11 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
 PLUGIN = "KhajiitKeenSensesConcentration.esp"
-VERSION = "0.2.8"
+VERSION = "0.2.9"
 META = "KhajiitKeenSensesConcentration"
 SPELL_ID, EFFECT_ID = 0x01000800, 0x01000801
 SHADER_ID = 0x01000802
-COLOR = bytes((245, 140, 115, 0))  # #F58C73, fourth byte unused, not opacity.
+COLOR = bytes((250, 171, 118, 0))  # #FAAB76, fourth byte unused, not opacity.
 SHADER_BASELINE_SHA256 = "1c199d7ee9487267c1b8261f655878afc0168f760df662625a25cb0d537fce7c"
 
 
@@ -72,7 +72,7 @@ def shader_payload():
 def make_plugin():
     header = (sub("HEDR", struct.pack("<fII", 1.7, 6, 0x803))
         + sub("CNAM", ztext("aknkat"))
-        + sub("SNAM", ztext("Keen Senses Concentration 0.2.8: 5m, base 50/s, indoors or 19:00-06:00 exclusive, no daedra; game validation pending."))
+        + sub("SNAM", ztext("Keen Senses Concentration 0.2.9: 5m, base 50/s, indoors or 19:00-06:00 exclusive, no daedra; game validation pending."))
         + sub("MAST", ztext("Skyrim.esm")) + sub("DATA", bytes(8)))
 
     data = bytearray(152)
@@ -186,13 +186,13 @@ def make_manifest():
             "inactive_cast_cost": "May still consume Magicka; boundary behavior is runtime-unverified",
         },
         "shader": "local 000802 LKSC_DetectionAmberShader, same for all targets",
-        "detection_color": "#F58C73", "particle_color_rgb": [245, 140, 115],
+        "detection_color": "#FAAB76", "particle_color_rgb": [250, 171, 118],
         "particle_color_mode": "direct RGB; grayscale color mapping off; palette path empty",
         "shader_baseline": "Skyrim.esm:000DC209 LifeDetectedEnemy, normalized exported settings",
         "shader_baseline_data_sha256": SHADER_BASELINE_SHA256,
         "shader_non_color_settings": "unchanged: particle count, scale, timing, alpha, blending, Z test",
         "hand_casting_art": None, "casting_animations": "unchanged",
-        "display_note": "#F58C73 is the source particle RGB; ENB, additive blending and alpha affect the final screen color.",
+        "display_note": "#FAAB76 is the source particle RGB; ENB, additive blending and alpha affect the final screen color.",
         "external_references": {
             "00000014": "PLYR PlayerRef", "00013745": "RACE KhajiitRace",
             "00088845": "RACE KhajiitRaceVampire", "00013796": "KYWD ActorTypeUndead",
