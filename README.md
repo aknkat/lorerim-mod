@@ -1,5 +1,9 @@
 # LoreRim 5：鋭敏な感覚 / Khajiit Keen Senses
 
+**別MOD：Estee Emerald Eyes 1.0.0** — 男性カジート用に基準色 **#2EDB91** の目を1種類追加します。元の目・NPC・顔と体・探知能力は変更しません。新規HDPT/TXST/FLSTのみ、既存レコード上書き0件、追加スクリプト・DLLなし。構造・DDS・配布物の読み戻しは確認済み、ゲーム内動作は未検証です。
+
+[目のMO2導入ZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/EsteeEmeraldEyes-1.0.0-MO2.zip) / [目の制作ソースZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/EsteeEmeraldEyes-1.0.0-source.zip) / [導入・解除のREADME](docs/EMERALD_EYES.md) / [制作・検査手順](docs/EMERALD_EYES_BUILD.md) / [検査結果](docs/EMERALD_EYES_VALIDATION.md)
+
 **新しい制作物：鋭敏な感覚（集中）0.2.9。色を#FAAB76へ差し替え、屋内常時・屋外19:00以上～翌6:00未満、半径約5m・基礎50マジカ／秒、デイドラ除外の版です。** 探知色#FAAB76・手元の光なし・使用によるスキル経験値なしは維持します。新規SPEL・MGEF・専用EFSHの3件で構成し、既存レコードの上書き、独自スクリプト、クエスト、DLL、追加SKSEプラグインはありません。条件・配布構造の検査とゲーム内動作確認は区別します。実機未検証です。
 
 [集中呪文版のMO2導入ZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSensesConcentration-0.2.9-MO2.zip) / [制作ソースZIP](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/dist/KhajiitKeenSensesConcentration-0.2.9-source.zip) / [導入・解除・検証状況のREADME](docs/CONCENTRATION.md) / [ビルド方法](docs/CONCENTRATION_BUILD.md)

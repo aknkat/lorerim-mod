@@ -1,0 +1,17 @@
+Estee Emerald Eyes — recolored eye option for personal character use.
+
+Based on the user-supplied Kala's Beast Eyes - Improved 2.0 (1k).
+Improved edition: https://www.nexusmods.com/skyrimspecialedition/mods/94485
+Original Kala's Eyes - Beast / Kalahira:
+https://www.nexusmods.com/skyrimspecialedition/mods/42298
+
+The supplied mod's credits also name:
+Eyes of Aber — Aberin
+The Eyes of Beauty — LogRaam (Gabriel Mailhot)
+
+Texture artwork remains attributable to its respective original creators.
+The repository's code license does not relicense third-party texture artwork.
+The original mod ZIP, BSA archives, ESP, and the user's preset are not included.
+
+This add-on contains a recolored derivative texture and new configuration
+records, not an overwrite of the original texture or original head parts.
