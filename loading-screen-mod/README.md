@@ -1,5 +1,18 @@
 # LoreRim ロード画面用パッチ
 
+## 最新：指定画像への変更 0.1.1 WQHD
+
+[0.1.1 WQHD MO2導入用ZIPをダウンロード](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/loading-screen-mod/dist/LoreRim_TESL_Skyrim_Coverage_Patch-0.1.1-WQHD-MO2.zip)
+
+差し替え先は「雪山を望む猫人の旅人 (1).png」。元画像1672×941の全体を収めたまま2560×1440へ拡大し、DXT5 DDSに変換しました。WQHDは出力サイズであり、元画像以上の細部を保証しません。
+
+0.1.0からは画像DDSだけを変更しています（説明・チェックサム・画像変換記録を除く）。NIF 110個は前版とバイト単位で同一です。共通DDSパスを使うため、元のEchoes差し替え側にも新画像が適用されます。メインメニュー設定、ESP、スクリプト、DLL、INIは変更しません。
+
+0.1.0を導入済みなら、その追加パッチMODだけを本ZIPでReplaceするか、旧パッチを無効化して新版を別MODとして導入してください。元のEchoes差し替え・TESL本体・Fully IsolatedへMerge/Replaceしないでください。新版がDDSと110個のNIFの競合勝者になるよう配置します。
+
+DDS寸法・DXT5データ長・再復号・圧縮誤差・ZIP CRC・全メンバーSHA256・NIF不変性を検査済み。**Skyrim実機未検証、全ロード画面経路の修正や実機の全画面描画は未確認です。** 0.1.0は履歴として保持しています。
+
+
 既存の他MODとは分けた、ロード画面MOD専用フォルダです。
 
 ## TESL画像差し替え範囲の補完 0.1.0
