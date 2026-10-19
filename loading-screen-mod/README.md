@@ -1,6 +1,18 @@
 # LoreRim ロード画面用パッチ
 
-## 最新：指定画像への変更 0.1.1 WQHD
+## 最新：EchoesとTESLを含む版 0.2.0 WQHD
+
+[0.2.0 WQHD MO2導入用ZIPをダウンロード](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/loading-screen-mod/dist/LoreRim_SpoilerSafe_Loading_Echoes_TESL-0.2.0-WQHD-MO2.zip)
+
+0.1.1はTESL用NIFのみを含み、Echoes側は旧差し替えMODが有効であることに依存していました。診断では、0.1.1の画像とTESL用NIFは優先されていますが、Echoes側は元MODのNIFが使われる構成でした。0.2.0はEchoes用450個を追加し、この依存をなくします。新画像DDS（2560×1440）とTESL用110個は0.1.1から変更していません。
+
+**現在の追加パッチMODだけを0.2.0でReplaceしてください。** 元のEchoes本体・TESL本体・Fully Isolatedには統合しません。追加パッチを現在と同じ最高優先度で有効にし、ESP・フィルター・メインメニュー設定は変更不要です。旧Echoes差し替えを追加で有効にする必要はありません。導入済み環境の診断でMO2が記録した選択プロファイルはDefaultでした。別プロファイルの有効状態は独立しています。
+
+診断にある560個のNIFパスとの一致、受領したESPの410件のLSCR→STAT→モデル参照、全NIFの同梱DDS参照、元テンプレートとの一致、ZIP CRCとSHA256を検査しました。**実機未検証です。** 新版導入後に初回ロード・屋内外移動・ファストトラベルの画像と16:9表示、メインメニュー表示の維持をまとめて確認してください。本番セーブの上書きは不要です。未提供の他MODの全LSCRまで網羅したという意味ではありません。
+
+この版も画像DDSだけでなくロード画面用NIFを置き換える方式です。ESP・DLL・スクリプト・INI・メインメニュー用ファイルは含みません。以前のZIPは履歴として保持しています。
+
+## 履歴：指定画像への変更 0.1.1 WQHD
 
 [0.1.1 WQHD MO2導入用ZIPをダウンロード](https://github.com/aknkat/lorerim-mod/raw/refs/heads/main/loading-screen-mod/dist/LoreRim_TESL_Skyrim_Coverage_Patch-0.1.1-WQHD-MO2.zip)
 
